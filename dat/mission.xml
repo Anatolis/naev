@@ -580,4 +580,19 @@
    <faction>Pirate</faction>
   </avail>
  </mission>
+ <mission name="Mining base Alpha">
+  	<lua>miners/mining_base_alpha</lua>
+  	<flags>
+  		<unique />
+  	</flags>
+  	<avail>
+   		<chance>100</chance>
+   		<location>Bar</location>
+	   	<faction>Independent</faction>
+	   	<faction>Empire</faction>
+	   	<faction>Dvaered</faction>
+	   	<faction>Frontier</faction>
+	   	<faction>Goddard</faction>
+  	</avail>
+ </mission>
 </Missions>

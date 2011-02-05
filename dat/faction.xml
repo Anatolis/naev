@@ -252,4 +252,15 @@
    <enemy>Associates</enemy>
   </enemies>
  </faction>
+<faction name="Miners">
+  <logo>trader</logo>
+  <longname>Miners association</longname>
+	<colour>brown</colour>
+  <player>3</player>
+  <!-- <spawn>miner</spawn> Future?-->
+  <allies>
+  </allies>
+  <enemies>
+  </enemies>
+ </faction>
 </Factions>

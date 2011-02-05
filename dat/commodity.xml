@@ -40,4 +40,7 @@
  <commodity name="FLF IFF Transponder"/>
  <commodity name="Jorek"/>
  <commodity name="Four Winds Informant"/>
+	<commodity name="Starbase module" />
+	<commodity name="Drills" />
+	<commodity name="Explosives" />
 </Commodities>
