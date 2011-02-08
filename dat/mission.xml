@@ -595,4 +595,12 @@
 	   	<faction>Goddard</faction>
   	</avail>
  </mission>
+<mission name="Miner cargo">
+  <lua>miners/miner_cargo</lua>
+  <avail>
+   <chance>960</chance>
+   <location>Computer</location>
+   <faction>Miners</faction>
+  </avail>
+ </mission>
 </Missions>
