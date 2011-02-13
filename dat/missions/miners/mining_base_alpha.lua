@@ -35,7 +35,7 @@ else -- default english
    
 	text[4] = [[One of the miner technicians approaches you in your cockpit. "The launch was succesfulll", he said. "We can now leave this system and return to %s. The modules are programmed to assemble themselves automatically. It will take some time before the station is assembled." You nod and start traveling to the nearest hyperjump point.]]
 
-	text[5] = [[The miner technicians thank you for your help. "In a few UST the station will be ready, but we could use your help in the future to help us to make the station opperational. If you have time, please visit our new station in the %s system."
+	text[5] = [[The miner technicians thank you for your help. "In a few UST the station will be ready, but we could use your help in the future to help us to make the station opperational."
 Before they run back into the market to buy new stuff for their station, one of them hands you a credit-chip with your reward.]]
    
    
@@ -123,7 +123,7 @@ function land ()
 		var.push( "miner_stat", 1 ) 		-- creating a mission variable for later lookup and tracing.
 
 		-- Text for completion. Thanks and suggestion to more missions from new station
-		tk.msg( title[3], string.format( text[5], satellite_sys:name() ) )
+		tk.msg( title[3], text[5] )
 		
 		misn.finish(true) 				-- And finishing this mission.
    end
