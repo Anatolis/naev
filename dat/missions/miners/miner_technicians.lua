@@ -43,10 +43,13 @@ Good luck!"]]
    errtitle = {}
    errtitle[1] = "Need More Space"
    errtitle[2] = "Declined"
+   errtitle[3] = "Enough!"
    err = {}
    err[1] = "You do not have enough space to load the packages. You need to make room for %d more tons."
    err[2] = [[ "To bad. I hoped you had time right now. Perhaps we will meet again in the future." 
 <X> turn around an walks away, clearly dissapointed. ]]
+   err[3] = [[The miners make you just mad with their chatter and loud noices. You lock your cockpit and open the main cargo door, venting the miners and their equipment into space. That will teach them! ]]
+   err[4] = [[You just don't have time anymore. You ask the miners nicely to leave your ship.]] 
 end
 
 
@@ -54,6 +57,7 @@ function create ()
    -- Note: this mission does not make any system claims.
    misn.setNPC( "Miner <x>", "none" )
    misn.setDesc( bar_desc )
+   inspace = false -- Just a tracker for a fun message on abortion.
 end
 
 function accept ()
@@ -94,7 +98,7 @@ end
 
 function land ()
    landed = planet.cur()
-
+   inspace = false
    if landed == pickup and misn_stage == 0 then
 
       -- Make sure player has room.
@@ -104,7 +108,7 @@ function land ()
       end
 
       -- Update mission
-      package = misn.cargoAdd("Packages", 5)
+      carg_id = misn.cargoAdd("Packages", 5)
       misn_stage = 1
       
       misn.setDesc( string.format(misn_desc[2], dest:name(), destsys:name()))
@@ -129,13 +133,18 @@ function land ()
    end
 end
 
-
-function enter ()
-   sys = system.cur()
-
+function takeoff()
+   inspace = true
 end
 
 function abort()
+
+	if inspace
+		tk.msg( errtitle[3], err[3])
+	else
+		tk.msg( errtitle[3], err[4])
+	end
+	misn.cargoJet(carg_id)
 	misn.finish(false)
 end
 
