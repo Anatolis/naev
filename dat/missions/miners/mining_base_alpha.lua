@@ -120,7 +120,7 @@ function land ()
 		player.pay( credits )			-- Pay the player
 		diff.apply("Mining_base_alpha") 	-- Apply diff to reveal our miningbase
 	  
-		var.push( "miner_stat", 1 ) 		-- creating a mission variable for later lookup and tracing.
+		var.push( "miner_status", 1 ) 		-- creating a mission variable for later lookup and tracing.
 
 		-- Text for completion. Thanks and suggestion to more missions from new station
 		tk.msg( title[3], text[5] )
