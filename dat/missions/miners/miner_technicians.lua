@@ -93,6 +93,7 @@ function accept ()
    -- Set hooks
    hook.land("land")
    hook.enter("enter")
+   hook.takeoff("takeoff")
 end
 
 
@@ -137,14 +138,20 @@ function takeoff()
    inspace = true
 end
 
-function abort()
+function enter()
 
-	if inspace
-		tk.msg( errtitle[3], err[3])
-	else
-		tk.msg( errtitle[3], err[4])
+end
+
+function abort()
+	
+	if misn_stage ~= 0 then
+		if inspace then
+			tk.msg( errtitle[3], err[3])
+		else
+			tk.msg( errtitle[3], err[4])
+		end
+		misn.cargoJet(carg_id)
 	end
-	misn.cargoJet(carg_id)
 	misn.finish(false)
 end
 
