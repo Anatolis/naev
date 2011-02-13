@@ -67,7 +67,7 @@ function accept ()
 	misn.accept()
 	misn_stage = 0
 	var.push( "miner_status", 2 ) -- Next stage in the miner missions. 2 or higher allows landing on base
-	diff.apply("Mining_base_alpha2")
+	
 	-- target destination
 	pickup,pickupsys = planet.get( "Selphod" ) -- TODO: random location picking
 	dest,destsys = planet.get( "Mining base Alpha" )
