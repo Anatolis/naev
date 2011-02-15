@@ -29,14 +29,16 @@ else -- default english
    	
 	-- TODO: Spicing up texts and introduction to a minor miner storyline(?) -Anatolis
    	text = {}
-   	text[1] = [["Will you help us to build a new Mining base?" he also wispers: "help, I could need some spice!"]]
-   	text[2] = [["Great! The plan is for you to take us to the %s system so we can launch our station modules. Then we'll return back here on %s and %s so we can start the preperations for the next steps. You'll be paid %d credits when we arrive back."]]
+   	text[1] = [["Hello, my name is Gallain. I am a representative of the miners guild. To exetend our working area we are planning to construct a new mining station. We are looking for a capable pilot who can help us launch the space station modules. 
+   	Would you help us?" ]]
+   	text[2] = [["Thank you! The plan is for you to take us to the %s system so we can launch our station modules. Then we'll return back here on %s and %s so we can start the preperations for the next steps. You'll be paid %d credits when we arrive back."]]
    	text[3] = [["We will now start loading our modules in your ship. A group of technicians will also join you to ensure a smooth launch. When everything is loaded we would like to leave at-once!"]]
    
-	text[4] = [[One of the miner technicians approaches you in your cockpit. "The launch was succesfulll", he said. "We can now leave this system and return to %s. The modules are programmed to assemble themselves automatically. It will take some time before the station is assembled." You nod and start traveling to the nearest hyperjump point.]]
+	text[4] = [[One of the miner technicians approaches you in your cockpit. "The launch was succesfulll", he said. "We can now leave and return to %s. The modules are programmed to assemble themselves automatically. It will take some time before the station is assembled." 
+	You nod and start traveling to the nearest hyperjump point.]]
 
-	text[5] = [[The miner technicians thank you for your help. "In a few UST the station will be ready, but we could use your help in the future to help us to make the station opperational."
-Before they run back into the market to buy new stuff for their station, one of them hands you a credit-chip with your reward.]]
+	text[5] = [[The technicians thank you for your help. "In a few UST the station will be ready, but we could use your help in the future to help us to make the station opperational."
+Before the technicians run back into the market to buy new stuff for their station, one of them hands you a credit-chip with your reward.]]
    
    
    text[8] = [["That's to bad. Perhaps we could try again in the future." The miner walks away dissappointed and starts talking to another pilot.]]
@@ -60,7 +62,7 @@ function create ()
    homeworld = planet.cur()
    homeworld_sys = system.cur()
    satellite_sys = system.get(trgtSystem)
-   credits = 75000
+   credits = 50000
 
    -- Set stuff up for the spaceport bar
    misn.setNPC( "A miner", "none" ) -- TODO: portrait of a 'scary' miner
