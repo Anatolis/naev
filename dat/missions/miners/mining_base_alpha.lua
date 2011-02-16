@@ -53,10 +53,10 @@ Before the technicians run back into the market to buy new stuff for their stati
    autopilot = {}
    autopilot[1] = "Reached target system: Initiate autopilot..."
    autopilot[2] = "Launch site reached: starting launch sequence..."
-   autopilot[3] = "Launch sequence complete: Deactivating autopilot..."
+   autopilot[3] = "Deactivating autopilot!"
 
    trgtSystem = "Sirou" -- System where the new miningbase will be build. If you change this, change also in unidiff.xml!!
-   stationCoors = vec2.new( -100, 100) -- Should be somewhat similar to coordinates in assets.xml
+   stationCoors = vec2.new( 4000, -5000) -- Should be somewhat similar to coordinates in assets.xml
 end
 
 
@@ -142,35 +142,33 @@ function enter()
    -- Launch satellite
    if misn_stage == 0 and sys == satellite_sys then
       plt = player.pilot()
-      hook.timer( 3000, "initAutopilot" )	-- 3sec after entering the system, start using the autopilot
-      --Instead of begin launch, initiate autopilot
-	  
+	  hook.timer( 3000, "initAutopilot" )	-- 3sec after entering the system, start using the autopilot	  
    end
 end
 
 function abort()
-
+	-- TODO: nicer abort texts
+	misn.finish(false)
 end
 
 --[[
    Launch process
 --]]
 function initAutopilot()
-   player.msg( autopilot[1] )             -- starting autopilot
-   plt:control()                                 -- Taking control
-   plt:goto( stationCoors )                 -- Head into direction
-   hook.pilot(plt,'idle',beginLaunch)   -- When destination is reached, status should be idle
+	misn.osdDestroy()						-- Destroy the current mission objective (jetting cargo)
+	player.msg( autopilot[1] )				-- starting autopilot
+	plt:control()							-- Taking control
+	plt:goto( stationCoors ) 				-- Head into direction
+	hook.pilot(plt, "idle", "beginLaunch")	-- When destination is reached, status should be idle. Then start launch.
 end
 function beginLaunch ()
-	
-        player.msg( autopilot[2] )        -- msg destination reached 
-       player.msg( launch[1] )             -- Starting launch sequence
-	misn.osdDestroy()		-- Distroy the current mission objective (jetting cargo)
-	hook.timer( 2000, "beginCountdown" )
+    player.msg( autopilot[2] )			-- msg destination reached 
+    player.msg( launch[1] )				-- Starting launch sequence
+	hook.timer(2000, "beginCountdown" )
 end
 function beginCountdown ()
    countdown = 5
-   player.msg( launch[3] )
+   player.msg( launch[2] )
    hook.timer( 1000, "countLaunch" )
 end
 function countLaunch ()
@@ -192,15 +190,15 @@ function launchModules ()
 	misn.cargoJet(cargo4)
 	misn.cargoJet(cargo5)
 	
-        plt:control(false)       -- return ships control to player again
-        player.msg( autopilot[3] )
-	hook.timer( 3000, "launchSucces" ) -- Wait for 3sec to display succes message
+    plt:control(false)       			-- return ships control to player again
+    player.msg( autopilot[3] )			-- msg disengadge autopilot
+	hook.timer( 3000, "launchSucces" ) 	-- Wait for 3sec to display succes message
 end
 function launchSucces()
 	-- Message upon good launch. 
-	tk.msg( title[5], string.format( text[4], homeworld:name() ) ) -- Succesfull launch
+	tk.msg( title[5], string.format( text[4], homeworld:name() ) ) 							-- Succesfull launch
 		
-	misn.setDesc( string.format( mdesc[2], homeworld:name(), homeworld_sys:name() ) ) -- Go back to home-planet
-	misn.osdCreate(mtitle[1], {mdesc[2]:format(homeworld:name(), homeworld_sys:name())}) -- New target description
+	misn.setDesc( string.format( mdesc[2], homeworld:name(), homeworld_sys:name() ) ) 		-- Go back to home-planet
+	misn.osdCreate(mtitle[1], {mdesc[2]:format(homeworld:name(), homeworld_sys:name())}) 	-- New target description
 	misn.markerMove( misn_marker, homeworld_sys )
 end
