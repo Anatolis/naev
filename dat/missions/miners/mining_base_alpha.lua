@@ -32,7 +32,8 @@ else -- default english
    	text[1] = [["Hello, my name is Gallain. I am a representative of the miners guild. To exetend our working area we are planning to construct a new mining station. We are looking for a capable pilot who can help us launch the space station modules. 
    	Would you help us?" ]]
    	text[2] = [["Thank you! The plan is for you to take us to the %s system so we can launch our station modules. Then we'll return back here on %s and %s so we can start the preperations for the next steps. You'll be paid %d credits when we arrive back."]]
-   	text[3] = [["We will now start loading our modules in your ship. A group of technicians will also join you to ensure a smooth launch. When everything is loaded we would like to leave at-once!"]]
+   	text[3] = [["We will now start loading our modules in your ship. A group of technicians will also join you to ensure a smooth launch. To ensure that the modules are launched on the right location we will also upload an autopilot routine to your ships systems. As soon as we enter the system the autopilot will take over and position the ship.  
+	When everything is ready we would like to leave at-once!"]]
    
 	text[4] = [[One of the miner technicians approaches you in your cockpit. "The launch was succesfulll", he said. "We can now leave and return to %s. The modules are programmed to assemble themselves automatically. It will take some time before the station is assembled." 
 	You nod and start traveling to the nearest hyperjump point.]]
@@ -136,6 +137,8 @@ function jump ()
    -- Launch satellite
    if misn_stage == 0 and sys == satellite_sys then
       hook.timer( 3000, "beginLaunch" )	-- 3sec after entering the system, start launching
+	  -- Instead of begin launch, initiate autopilot
+	  
    end
 end
 
