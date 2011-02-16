@@ -10,7 +10,7 @@
 -- localization stuff, translators would work here
 lang = naev.lang()
 if lang == "es" then
-else -- default english
+else -- default English
    bar_desc = "A rough appearing miner walks from one pilot to another."
    mtitle = {}
    mtitle[1] = "Mining base"
@@ -24,25 +24,23 @@ else -- default english
    title[1] = "Bar"
    title[2] = "Building a base"
    title[3] = "Mission Success"
-   title[5] = "Succesfull launch"
+   
+   title[5] = "Successful launch"
+
    title[8] = "Better luck next time"
    	
 	-- TODO: Spicing up texts and introduction to a minor miner storyline(?) -Anatolis
    	text = {}
-   	text[1] = [["Hello, my name is Gallain. I am a representative of the miners guild. To exetend our working area we are planning to construct a new mining station. We are looking for a capable pilot who can help us launch the space station modules. 
-   	Would you help us?" ]]
-   	text[2] = [["Thank you! The plan is for you to take us to the %s system so we can launch our station modules. Then we'll return back here on %s and %s so we can start the preperations for the next steps. You'll be paid %d credits when we arrive back."]]
-   	text[3] = [["We will now start loading our modules in your ship. A group of technicians will also join you to ensure a smooth launch. To ensure that the modules are launched on the right location we will also upload an autopilot routine to your ships systems. As soon as we enter the system the autopilot will take over and position the ship.  
-	When everything is ready we would like to leave at-once!"]]
-   
-	text[4] = [[One of the miner technicians approaches you in your cockpit. "The launch was succesfulll", he said. "We can now leave and return to %s. The modules are programmed to assemble themselves automatically. It will take some time before the station is assembled." 
-	You nod and start traveling to the nearest hyperjump point.]]
-
-	text[5] = [[The technicians thank you for your help. "In a few UST the station will be ready, but we could use your help in the future to help us to make the station opperational."
+   	text[1] = [["Hello, my name is Gallain. I am a representative of the miners guild. To extend our working area we are planning to construct a new mining station. We are looking for a capable pilot who can help us launch the space station modules. 
+Would you help us?" ]]
+   	text[2] = [["Thank you! The plan is for you to take us to the %s system so we can launch our station modules. Then we'll return back here on %s and %s so we can start the preparations for the next steps. You'll be paid %d credits when we arrive back."]]
+   	text[3] = [["We will now start loading our modules in your ship. A group of technicians will also join you to ensure a smooth launch. When everything is loaded we would like to leave at-once!"]]
+	text[4] = [[One of the miner technicians approaches you in your cockpit. "The launch was successful", he said. "We can now leave and return to %s. The modules are programmed to assemble themselves automatically. It will take some time before the station is assembled." 
+You nod and start travelling to the nearest hyperjump point.]]
+	text[5] = [[The technicians thank you for your help. "In a few UST the station will be ready, but we could use your help in the future to help us to make the station operational."
 Before the technicians run back into the market to buy new stuff for their station, one of them hands you a credit-chip with your reward.]]
-   
-   
-   text[8] = [["That's too bad. Perhaps we could try again in the future." The miner walks away dissappointed and starts talking to another pilot.]]
+   -- Reject messages
+   text[8] = [["That's too bad. Perhaps we could try again in the future." The miner walks away disappointed and starts talking to another pilot.]]
    text[9] = [["You do not have enough free cargo space to accept this mission!"]]
    
    launch = {}
@@ -53,10 +51,12 @@ Before the technicians run back into the market to buy new stuff for their stati
    autopilot = {}
    autopilot[1] = "Reached target system: Initiate autopilot..."
    autopilot[2] = "Launch site reached: starting launch sequence..."
+
    autopilot[3] = "Deactivating autopilot!"
 
-   trgtSystem = "Sirou" -- System where the new miningbase will be build. If you change this, change also in unidiff.xml!!
-   stationCoors = vec2.new( 4000, -5000) -- Should be somewhat similar to coordinates in assets.xml
+   trgtSystem = "Sirou" -- System where the new mining base will be build. If you change this, change also in unidiff.xml!!
+   stationCoors = vec2.new( -100, 100) -- Should be somewhat similar to coordinates in assets.xml
+   
 end
 
 
@@ -142,13 +142,15 @@ function enter()
    -- Launch satellite
    if misn_stage == 0 and sys == satellite_sys then
       plt = player.pilot()
-	  hook.timer( 3000, "initAutopilot" )	-- 3sec after entering the system, start using the autopilot	  
+
+      hook.timer( 3000, "initAutopilot" )  -- 3sec after entering the system, start using the autopilot
+      --Instead of begin launch, initiate autopilot
    end
 end
 
-function abort()
-	-- TODO: nicer abort texts
-	misn.finish(false)
++function abort()
+	-- TODO: nicer abort texts (A.)
+	misn.finish(true)
 end
 
 --[[

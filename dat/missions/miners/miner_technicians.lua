@@ -10,9 +10,9 @@
 lang = naev.lang()
 if lang == "es" then
    -- not translated atm
-else -- default english
+else -- default English
    -- Mission details
-   bar_desc = "Suprisingly you see miner <X> sitting at the bar. You would not have expected him here."
+   bar_desc = "Surprisingly you see miner <X> sitting at the bar. You would not have expected him here."
    misn_title = "First miners"
    misn_reward = "%d credits"
    misn_desc = {}
@@ -28,17 +28,18 @@ else -- default english
    title[4] = "Docking"
    
    text = {}
-   text[1] = [["Hello %s! Don't look so supprised. We miners are a traveling group of people. But it is nice we meet again, because we could use your help once again."
+	text[1] = [["Hello %s! Don't look so surprised. We miners are a travelling group of people. But it is nice we meet again, because we could use your help once again."
 
 "Are you interested?" ]]
-   text[2] = [["Thank you! After you launched the station modules, they assambled succesfully. The station is now ready but not yet opperational. We would like you to pick-up a group miners from %s in the %s system and bring them to the new station in the %s system. They will start up the lifesupport and other station systems to make it opperational. The miners will be waiting for you at the landing pad. The reward of %d will be paid when you are succesfull.
+	text[2] = [["Thank you! After you launched the station modules, they assembled successfully. The station is now ready but not yet operational. We would like you to pick-up a group miners from %s in the %s system and bring them to the new station in the %s system. They will start up the life-support and other station systems to make it operational. The miners will be waiting for you at the landing pad. The reward of %d will be paid when you are successful.
 Good luck!"]]
 	text[3] = [[As you finish your landing routine you spot the group of miners already. They have some equipment boxes and spacesuits. You signal them and the walk to your ship. 
-"We will load our equipment. When we are done we can travel emediately to %s in the %s system."]]
+"We will load our equipment. When we are done we can travel immediately to %s in the %s system."]]
 	text[4] = [[Once you are docked with the space station the miners jumped in their space suits. They leave your ship via the airlock. From you cockpit you see them walking in different directions. Only a few minutes later the lights in the station start flickering until they keep on burning steadily. 
-	One of the miners approaches your ship, this time without his spacesuit. "Thank you for your help. All systems function normally and the atmospere is breathable, so if you want you can leave your ship." He hands you a creditchip. 
+	One of the miners approaches your ship, this time without his spacesuit. "Thank you for your help. All systems function normally and the atmosphere is breathable, so if you want you can leave your ship." He hands you a creditchip. 
 	
-	"If you want we have some more missions for you. When you're interested please visit my collegue at the bar."]]
+	"If you want we have some more missions for you. When you're interested please visit the bar."]]
+
    -- Errors
    errtitle = {}
    errtitle[1] = "Need More Space"
@@ -46,10 +47,11 @@ Good luck!"]]
    errtitle[3] = "Enough!"
    err = {}
    err[1] = "You do not have enough space to load the packages. You need to make room for %d more tons."
-   err[2] = [[ "To bad. I hoped you had time right now. Perhaps we will meet again in the future." 
-<X> turn around an walks away, clearly dissapointed. ]]
-   err[3] = [[The miners make you just mad with their chatter and loud noices. You lock your cockpit and open the main cargo door, venting the miners and their equipment into space. That will teach them! ]]
-   err[4] = [[You just don't have time anymore. You ask the miners nicely to leave your ship.]] 
+   err[2] = [[ "Too bad. I hoped you had time right now. Perhaps we will meet again in the future." 
+<X> turn around an walks away, clearly disappointed. ]]
+   err[3] = [[The miners make you just mad with their chatter and loud noises. You lock your cockpit and open the main cargo door, venting the miners and their equipment into space. That will teach them! ]]
+   err[4] = [[You just don't have time any more. You ask the miners nicely to leave your ship.]] 
+
 end
 
 
