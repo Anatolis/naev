@@ -54,8 +54,8 @@ Before the technicians run back into the market to buy new stuff for their stati
 
    autopilot[3] = "Deactivating autopilot!"
 
-   trgtSystem = "Sirou" -- System where the new mining base will be build. If you change this, change also in unidiff.xml!!
-   stationCoors = vec2.new( -100, 100) -- Should be somewhat similar to coordinates in assets.xml
+   trgtSystem = "Sirou" 	-- System where the new mining base will be build. If you change this, change also in unidiff.xml!!
+   stationCoors = vec2.new( 4000, -5000) 	-- Should be somewhat similar to coordinates in assets.xml
    
 end
 
@@ -148,7 +148,7 @@ function enter()
    end
 end
 
-+function abort()
+function abort()
 	-- TODO: nicer abort texts (A.)
 	misn.finish(true)
 end
