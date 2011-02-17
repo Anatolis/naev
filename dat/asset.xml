@@ -12887,8 +12887,8 @@ New Dortmund was never very successful in any sense of the term, but it is still
  </asset>
  <asset name="Mining base Alpha">
    <pos>
-   <x>-100.125142</x>
-   <y>100.033093</y>
+   <x>4000</x>
+   <y>-5000</y>
   </pos>
   <GFX>
    <space>000.png</space>
