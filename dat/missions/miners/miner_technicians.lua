@@ -12,7 +12,7 @@ if lang == "es" then
    -- not translated atm
 else -- default English
    -- Mission details
-   bar_desc = "Surprisingly you see miner Gallain sitting at the bar. You would not have expected him here."
+   bar_desc = "Surprisingly you see Gallain sitting at the bar. You would not have expected him here."
    misn_title = "First miners"
    misn_reward = "%d credits"
    misn_desc = {}
@@ -33,10 +33,10 @@ else -- default English
 "Are you interested?" ]]
 	text[2] = [["Thank you! After you launched the station modules, they assembled successfully. The station is now ready but not yet operational. We would like you to pick-up a group miners from %s in the %s system and bring them to the new station in the %s system. They will start up the life-support and other station systems to make it operational. The miners will be waiting for you at the landing pad. The reward of %d will be paid when you are successful.
 Good luck!"]]
-	text[3] = [[As you finish your landing routine you spot the group of miners already. They have some equipment boxes and spacesuits. You signal them and the walk to your ship. 
+	text[3] = [[As you finish your landing routine you spot the group of miners. They have some equipment boxes and spacesuits. You signal them and the walk to your ship. 
 "We will load our equipment. When we are done we can travel immediately to %s in the %s system."]]
-	text[4] = [[Once you are docked with the space station the miners jumped in their space suits. They leave your ship via the airlock. From you cockpit you see them walking in different directions. Only a few minutes later the lights in the station start flickering until they keep on burning steadily. 
-	One of the miners approaches your ship, this time without his spacesuit. "Thank you for your help. All systems function normally and the atmosphere is breathable, so if you want you can leave your ship." He hands you a creditchip. 
+	text[4] = [[Once you are docked with the space station, the miners jump in their space suits. They leave your ship via the airlock. From you cockpit you see them walking in different directions. Only a few minutes later the lights in the station start flickering until they keep on burning steadily. 
+	One of the miners approaches your ship, this time without his spacesuit. "Thank you for your help. All systems function normally and the atmosphere is breathable, so it is save to leave your ship now." He hands you a creditchip. 
 	
 "If you want we have some more missions for you. When you're interested please visit the bar."]]
 
@@ -48,8 +48,8 @@ Good luck!"]]
    err = {}
    err[1] = "You do not have enough space to load the packages. You need to make room for %d more tons."
    err[2] = [["Too bad. I hoped you had time right now. Perhaps we will meet again in the future." 
-<X> turn around an walks away, clearly disappointed. ]]
-   err[3] = [[The miners make you just mad with their chatter and loud noises. You lock your cockpit and open the main cargo door, venting the miners and their equipment into space. That will teach them! ]]
+Gallian gets up an walks away, clearly disappointed.]]
+   err[3] = [[The miners make you just mad with their chatter and loud noises. You lock your cockpit and open the main cargo door, venting the miners and their equipment into space. That will teach them!]]
    err[4] = [[You just don't have time any more. You ask the miners nicely to leave your ship.]] 
 
 end
@@ -72,7 +72,6 @@ function accept ()
 
 	misn.accept()
 	misn_stage = 0
-	var.push( "miner_status", 2 ) -- Next stage in the miner missions. 2 or higher allows landing on base
 	
 	-- target destination
 	pickup,pickupsys = planet.get( "Caladan" ) -- TODO: random location picking
@@ -94,7 +93,7 @@ function accept ()
 
    -- Set hooks
    hook.land("land")
-   hook.enter("enter")
+   -- hook.enter("enter")
    hook.takeoff("takeoff")
 end
 
@@ -112,6 +111,7 @@ function land ()
 
       -- Update mission
       carg_id = misn.cargoAdd("Packages", 5)
+	  var.push( "miner_status", 2 ) 		-- Next stage in the miner missions. 2 or higher allows landing on base
       misn_stage = 1
       
       misn.setDesc( string.format(misn_desc[2], dest:name(), destsys:name()))
@@ -122,7 +122,7 @@ function land ()
       tk.msg( title[3], string.format( text[3], dest:name(), destsys:name()) )
 
    elseif landed == dest and misn_stage == 1 then
-      if misn.cargoRm(package) then
+      if misn.cargoRm(carg_id) then
 
         player.pay(reward) -- Paying the player
          
@@ -130,9 +130,6 @@ function land ()
 		
 		misn.finish(true)
       end
-   
-
-      
    end
 end
 
