@@ -1,7 +1,7 @@
 --[[
 -- Miners cargo missions. Based on the regular cargo delivery missions but...
 -- You'll be mostly be shipping ore from the bases where the miners are present ;-)
--- Most of these missions require BULK ships. Not for small ships!
+-- Note: Most of these missions require BULK ships. Not for small ships!
 --]]
 
 include "scripts/jumpdist.lua"
@@ -55,7 +55,7 @@ Travel distance: %d]]
     accept_title = "Mission Accepted"
     
     osd_title = "Miner cargo mission"
-    osd_msg = "Fly to %s in the %s system."
+    osd_msg = "Transport %s to %s in the %s system."
 end
 
 -- Create the mission
@@ -94,7 +94,7 @@ function accept()
     end
     misn.accept()
     misn.cargoAdd(cargo, amount) -- TODO: change to jettisonable cargo once custom commodities are in. For piracy purposes.
-    misn.osdCreate(osd_title, {osd_msg:format(destplanet:name(), destsys:name())})
+    misn.osdCreate(osd_title, {osd_msg:format(cargo, destplanet:name(), destsys:name())})
     hook.land("land")
 end
 
@@ -104,6 +104,7 @@ function land()
         -- Semi-random message.
         tk.msg(cargo_land_title, cargo_land_p1[rnd.rnd(1, #cargo_land_p1)] .. cargo .. cargo_land_p2[rnd.rnd(1, #cargo_land_p2)])
         player.pay(reward)
+		
 		player.modFaction("Miners",1) -- It's just an easy mission, don't increase it to much
         misn.finish(true)
     end
