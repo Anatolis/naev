@@ -253,7 +253,7 @@
   </enemies>
  </faction>
 <faction name="Miners">
-  <logo>trader</logo>
+  <logo>miners</logo>
   <longname>Miners association</longname>
 	<colour>brown</colour>
   <player>3</player>
