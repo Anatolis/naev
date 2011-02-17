@@ -31,17 +31,19 @@ else -- default English
    	
 	-- TODO: Spicing up texts and introduction to a minor miner storyline(?) -Anatolis
    	text = {}
-   	text[1] = [["Hello, my name is Gallain. I am a representative of the miners guild. To extend our working area we are planning to construct a new mining station. We are looking for a capable pilot who can help us launch the space station modules. 
+   	text[1] = [["Hello, my name is Gallain. I am a representative of the miners guild. To extend our working area we are planning to construct a new mining station. We are looking for a capable pilot who can help us launch the space station modules.
+	
 Would you help us?" ]]
    	text[2] = [["Thank you! The plan is for you to take us to the %s system so we can launch our station modules. Then we'll return back here on %s and %s so we can start the preparations for the next steps. You'll be paid %d credits when we arrive back."]]
-   	text[3] = [["We will now start loading our modules in your ship. A group of technicians will also join you to ensure a smooth launch. When everything is loaded we would like to leave at-once!"]]
-	text[4] = [[One of the miner technicians approaches you in your cockpit. "The launch was successful", he said. "We can now leave and return to %s. The modules are programmed to assemble themselves automatically. It will take some time before the station is assembled." 
+   	text[3] = [["We will start loading our modules in your ship. A group of technicians will also join you to ensure a smooth launch. When everything is loaded we would like to leave at-once!"]]
+	text[4] = [[One of the miner technicians approaches you in your cockpit. "The launch was successful. We can now leave and return to %s. The modules are programmed to assemble themselves automatically. It will take some time before the station is finished."
+	
 You nod and start travelling to the nearest hyperjump point.]]
 	text[5] = [[The technicians thank you for your help. "In a few UST the station will be ready, but we could use your help in the future to help us to make the station operational."
 Before the technicians run back into the market to buy new stuff for their station, one of them hands you a credit-chip with your reward.]]
    -- Reject messages
-   text[8] = [["That's too bad. Perhaps we could try again in the future." The miner walks away disappointed and starts talking to another pilot.]]
-   text[9] = [["You do not have enough free cargo space to accept this mission!"]]
+   text[8] = [["That's too bad. Perhaps we could try again in the future." Gallain walks away disappointed and starts talking to another pilot.]]
+   text[9] = [["You do not have enough free cargo space to accept this mission."]]
    
    launch = {}
    launch[1] = "Preparing to launch station modules..."
@@ -125,7 +127,7 @@ function land ()
    landed = planet.cur()
    -- Mission success
    if misn_stage == 1 and landed == homeworld then
-		player.pay( credits )			-- Pay the player
+		player.pay( credits )				-- Pay the player
 		diff.apply("Mining_base_alpha") 	-- Apply diff to reveal our miningbase
 	  
 		var.push( "miner_status", 1 ) 		-- creating a mission variable for later lookup and tracing.
@@ -133,7 +135,7 @@ function land ()
 		-- Text for completion. Thanks and suggestion to more missions from new station
 		tk.msg( title[3], text[5] )
 		
-		misn.finish(true) 				-- And finishing this mission.
+		misn.finish(true) 					-- And finishing this mission.
    end
 end
 
@@ -142,9 +144,7 @@ function enter()
    -- Launch satellite
    if misn_stage == 0 and sys == satellite_sys then
       plt = player.pilot()
-
-      hook.timer( 3000, "initAutopilot" )  -- 3sec after entering the system, start using the autopilot
-      --Instead of begin launch, initiate autopilot
+      hook.timer( 3000, "initAutopilot" )  	-- 3sec after entering the system, start using the autopilot
    end
 end
 
@@ -164,8 +164,8 @@ function initAutopilot()
 	hook.pilot(plt, "idle", "beginLaunch")	-- When destination is reached, status should be idle. Then start launch.
 end
 function beginLaunch ()
-    player.msg( autopilot[2] )			-- msg destination reached 
-    player.msg( launch[1] )				-- Starting launch sequence
+    player.msg( autopilot[2] )				-- msg destination reached 
+    player.msg( launch[1] )					-- Starting launch sequence
 	hook.timer(2000, "beginCountdown" )
 end
 function beginCountdown ()
