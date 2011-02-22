@@ -605,4 +605,17 @@
    <done>Miner technicians</done>
   </avail>
  </mission>
+ 
+ <mission name="UFO hunting">
+  <lua>journalist/ufo_hunting</lua>
+  <flags>
+   <unique />
+  </flags>
+  <avail>
+   
+   <done></done>
+   <chance>100</chance>
+   <location>Bar</location>
+  </avail>
+ </mission>
 </Missions>
