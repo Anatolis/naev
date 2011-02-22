@@ -31,7 +31,7 @@ else -- Default to English
    text[3] = [[The businessman is waiting for you. "Ah, you've returned. I've already received the good news from my associates who monitor the Empire communications band. Here's the landing pass, you're now free to land at any pirate colony. There's always work for a competent pilot; I look forward to working with you again." With that, the man walks away, disappearing into a crowd. You wonder how much "business" this supposed businessman is involved in.]]
 
    msg = {}
-   msg[1] = "Ship destroyd. Mission objective updated."
+   msg[1] = "Target destroyed. Mission objective updated"
 end
 
 

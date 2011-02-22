@@ -208,6 +208,20 @@ AS_IF([test -z "$ndata_path" || test "$ndata_path" = "yes"], [
 ])
 AC_SUBST([ndata_path])
 
+# --with-preferences-dir
+prefsdir=".$PACKAGE_NAME"
+expand_variable prefsdir
+
+AC_MSG_CHECKING([for preferences directory])
+AC_ARG_WITH([preferences-dir],
+  AC_HELP_STRING([--with-preferences-dir=DIR], [preferences directory]),
+  [prefsdir="$withval"], [])
+AC_MSG_RESULT([$prefsdir])
+AS_IF([test -z "$prefsdir" || test "$prefsdir" = "yes"], [
+  AC_ERROR([The preferences directory must be explicitly specified])
+])
+AC_SUBST([prefsdir])
+
 #
 # Checks for libraries.
 #
@@ -405,6 +419,13 @@ VAR_SAVE([LIBS], ["-lm"])
 AC_CHECK_FUNCS([feenableexcept])
 VAR_RESTORE([LIBS])
 
+AC_CHECK_FUNCS([clock_gettime])
+# if it is not available directly, check it in librt (glibc does this).
+if test $ac_cv_func_clock_gettime = no; then
+AC_CHECK_LIB(rt, clock_gettime,
+      [LIBS="-lrt $LIBS"])
+fi
+
 VAR_SAVE([CFLAGS], ["$VORBISFILE_CFLAGS"])
 VAR_SAVE([LIBS],   ["$VORBISFILE_LIBS"])
 AC_CHECK_FUNCS([ov_read_filter])
@@ -467,6 +488,10 @@ esac
 AC_DEFINE_UNQUOTED([NDATA_DEF], ["$ndata_path"],
       [Define to the path to the data file])
 
+# PREFSDIR_DEF
+AC_DEFINE_UNQUOTED([PREFSDIR_DEF], ["$prefsdir"],
+      [Define to preferences directory])
+
 # GIT_COMMIT
 AS_IF([test -n "$GIT_COMMIT"], [
   AC_DEFINE_UNQUOTED([GIT_COMMIT], ["$GIT_COMMIT"],
@@ -508,6 +533,7 @@ AC_OUTPUT
 echo
 AC_MSG_NOTICE([prefix:      $prefix])
 AC_MSG_NOTICE([ndata:       $ndata_path])
+AC_MSG_NOTICE([prefsdir:    $prefsdir])
 echo
 AC_MSG_NOTICE([sound backends:])
 AC_MSG_NOTICE([  OpenAL:    $have_openal])

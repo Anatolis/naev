@@ -220,6 +220,9 @@ static void opt_gameplay( unsigned int wid )
 #ifdef NDATA_DEF
          "ndata: "NDATA_DEF"\n"
 #endif /* NDATA_DEF */
+#ifdef PREFSDIR_DEF
+         "preference directory: "PREFSDIR_DEF"\n"
+#endif /* PREFSDIR_DEF */
          );
 
 
@@ -742,7 +745,7 @@ static void opt_audioUpdate( unsigned int wid, char *str )
 
    /* Checkboxkes. */
    window_checkboxSet( wid, "chkNosound", conf.nosound );
-   window_checkboxSet( wid, "chkEngineGlow", conf.al_efx );
+   window_checkboxSet( wid, "chkEFX", conf.al_efx );
 
    /* List. */
    toolkit_setList( wid, "lstSound",
