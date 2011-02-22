@@ -263,4 +263,16 @@
   <enemies>
   </enemies>
  </faction>
-</Factions>
+
+ <faction name="CollectiveDummy">
+  <static />
+  <display>Collective</display>
+  <logo>collective</logo>
+  <player>-100</player>
+  <colour>silver</colour>
+  <spawn>collective</spawn>
+  <enemies />
+ </faction>
+ 
+ 
+ </Factions>
