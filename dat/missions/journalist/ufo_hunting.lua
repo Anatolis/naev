@@ -136,7 +136,7 @@ function enter()
 		firstrun = true
 		
 		hook.pilot(p, "idle", "update")
-		hook.pilot( p, "death", "trgtkill")
+		hook.pilot(p, "death", "trgtkill")
 		hook.pilot(p, "hail", "trgthail")
 		hook.pilot(p, "board", "trgtboard")
 		
