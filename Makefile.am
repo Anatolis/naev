@@ -17,12 +17,15 @@ dist_doc_DATA = AUTHORS README TODO LICENSE
 
 DATA_ARCHIVE = ndata
 PACK	     = utils/pack/pack$(EXEEXT)
+if HAVE_UTILS
+MKSPR      = utils/mkspr/mkspr$(EXEEXT)
+endif
 NAEV	     = naev$(EXEEXT)
 
 EXTRA_DIST = LICENSE extras naev.desktop
 CLEANFILES = $(DATA_ARCHIVE) $(NAEV)
 
-.PHONY: docs help install-ndata
+.PHONY: docs utils help install-ndata
 
 all-local: $(NAEV) VERSION
 
@@ -37,6 +40,11 @@ VERSION:
 	echo $(VERSION) > $@
 
 if HAVE_UTILS
+utils: $(PACK) $(MKSPR)
+
+$(MKSPR):
+	$(MAKE) -C utils/mkspr
+
 $(DATA_ARCHIVE): $(PACK) VERSION
 	@echo " PACK   $(DATA_ARCHIVE)"
 	cd "$(top_srcdir)" && \
@@ -49,6 +57,8 @@ $(DATA_ARCHIVE): $(PACK) VERSION
 	     find scripts -type f -name '*.lua'; \
 	     find dat     -type f);
 else
+utils:
+
 $(DATA_ARCHIVE):
 	@echo "***"
 	@echo "*** You must clone the full git repo to create $(DATA_ARCHIVE)"

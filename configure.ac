@@ -100,13 +100,13 @@ AC_MSG_RESULT([$have_docs])
 AC_CANONICAL_HOST
 
 AC_MSG_CHECKING([[if we need a __unix__ define]])
-AC_COMPILE_IFELSE([
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
   #ifndef __unix__
   # if defined __APPLE__ /* add other known platforms here */
   #   error should have __unix__ but don't
   # endif
   #endif
-], [AC_MSG_RESULT([no])],
+])], [AC_MSG_RESULT([no])],
 [
   AC_MSG_RESULT([yes])
   AC_DEFINE([__unix__], 1,
@@ -275,15 +275,17 @@ AS_IF([test "$with_sdlmixer" = "yes"], [
 ])
 
 # SDL_image
-#VAR_SAVE([LIBS])
-#AC_SEARCH_LIBS([IMG_Load], [SDL_image], [], [
-#  AC_ERROR([SDL_image not found])
-#])
-#SDLIMAGE_CFLAGS=
-#SDLIMAGE_LIBS="$LIBS"
-#VAR_RESTORE([LIBS])
-#AC_SUBST([SDLIMAGE_CFLAGS])
-#AC_SUBST([SDLIMAGE_LIBS])
+VAR_SAVE([LIBS])
+AC_SEARCH_LIBS([IMG_Load], [SDL_image], [
+  SDLIMAGE_CFLAGS=
+  SDLIMAGE_LIBS="$LIBS"
+  have_mkspr=yes
+], [
+  SDLIMAGE_CFLAGS=
+  SDLIMAGE_LIBS=
+  have_mkspr=no
+], [])
+VAR_RESTORE([LIBS])
 
 # OpenGL
 AM_PATH_OPENGL([], [
@@ -343,12 +345,10 @@ AS_IF([test "$enable_debug" = "paranoid"], [
 NAEV_CFLAGS="$NAEV_CFLAGS $CSPARSE_CFLAGS $SDL_CFLAGS"
 NAEV_CFLAGS="$NAEV_CFLAGS $XML_CFLAGS $FREETYPE_CFLAGS $LUA_CFLAGS"
 NAEV_CFLAGS="$NAEV_CFLAGS $VORBISFILE_CFLAGS $OPENGL_CFLAGS $PNG_CFLAGS"
-NAEV_CFLAGS="$NAEV_CFLAGS $SDLIMAGE_CFLAGS"
 
 NAEV_LIBS="$NAEV_LIBS $CSPARSE_LIBS $SDL_LIBS $XML_LIBS"
 NAEV_LIBS="$NAEV_LIBS $FREETYPE_LIBS $LUA_LIBS"
 NAEV_LIBS="$NAEV_LIBS $VORBISFILE_LIBS $OPENGL_LIBS $PNG_LIBS"
-NAEV_LIBS="$NAEV_LIBS $SDLIMAGE_LIBS"
 
 AS_IF([test "$have_openal" = "yes"], [
   NAEV_CFLAGS="$NAEV_CFLAGS $OPENAL_CFLAGS"
@@ -390,11 +390,15 @@ esac
 AC_SUBST([LIBLUA_CFLAGS])
 
 
-PACK_CFLAGS="$GLOBAL_CFLAGS $SDL_CFLAGS $SDLIMAGE_CFLAGS -DNOLOGPRINTFCONSOLE"
-PACK_LIBS="$GLOBAL_LIBS $SDL_LIBS $SDLIMAGE_LIBS"
-
+PACK_CFLAGS="$GLOBAL_CFLAGS $SDL_CFLAGS -DNOLOGPRINTFCONSOLE"
+PACK_LIBS="$GLOBAL_LIBS $SDL_LIBS"
 AC_SUBST([PACK_CFLAGS])
 AC_SUBST([PACK_LIBS])
+
+MKSPR_CFLAGS="$GLOBAL_CFLAGS $SDL_CFLAGS $SDLIMAGE_CFLAGS $PNG_CFLAGS -DNOLOGPRINTFCONSOLE"
+MKSPR_LIBS="$GLOBAL_LIBS $SDL_LIBS $SDLIMAGE_LIBS $PNG_LIBS"
+AC_SUBST([MKSPR_CFLAGS])
+AC_SUBST([MKSPR_LIBS])
 
 #
 # Checks for headers
@@ -421,10 +425,10 @@ VAR_RESTORE([LIBS])
 
 AC_CHECK_FUNCS([clock_gettime])
 # if it is not available directly, check it in librt (glibc does this).
-if test $ac_cv_func_clock_gettime = no; then
-AC_CHECK_LIB(rt, clock_gettime,
-      [LIBS="-lrt $LIBS"])
-fi
+AS_IF([test $ac_cv_func_clock_gettime = no], [
+   AC_CHECK_LIB(rt, clock_gettime,
+         [LIBS="-lrt $LIBS"])
+], [])
 
 VAR_SAVE([CFLAGS], ["$VORBISFILE_CFLAGS"])
 VAR_SAVE([LIBS],   ["$VORBISFILE_LIBS"])
@@ -458,12 +462,12 @@ AC_DEFINE_UNQUOTED([VMINOR], [$VMINOR], [Define to the minor version component])
 AC_DEFINE_UNQUOTED([VREV], [$VREV], [Define to the revision version component])
 
 # USE_OPENAL
-AS_IF([test "$have_openal" = "yes"], [
+AS_IF([test "x$have_openal" = "xyes"], [
   AC_DEFINE([USE_OPENAL], 1, [Define to 1 if using OpenAL])
 ])
 
 # USE_SDLMIX
-AS_IF([test "$have_sdlmixer" = "yes"], [
+AS_IF([test "x$have_sdlmixer" = "xyes"], [
   AC_DEFINE([USE_SDLMIX], 1, [Define to 1 if using SDL_mixer])
 ])
 
@@ -505,8 +509,9 @@ AS_IF([test -n "$GIT_COMMIT"], [
 AM_CONDITIONAL([HAVE_WINDRES], [test -n "$WINDRES"])
 AM_CONDITIONAL([HAVE_DOXYGEN], [test -n "$DOXYGEN"])
 AM_CONDITIONAL([HAVE_LUADOC], [test -n "$LUADOC"])
-AM_CONDITIONAL([HAVE_UTILS], [test "$have_utils" = "yes"])
-AM_CONDITIONAL([HAVE_DOCS], [test "$have_docs" = "yes"])
+AM_CONDITIONAL([HAVE_UTILS], [test "x$have_utils" = "xyes"])
+AM_CONDITIONAL([HAVE_DOCS], [test "x$have_docs" = "xyes"])
+AM_CONDITIONAL([HAVE_MKSPR], [test "x$have_mkspr" = "xyes"])
 
 #
 # Output
@@ -520,11 +525,12 @@ AC_CONFIG_FILES([Makefile
       src/tk/Makefile
       src/tk/widget/Makefile
       build/shave])
-AS_IF([test "$have_utils" = "yes"], [
+AS_IF([test "x$have_utils" = "xyes"], [
   AC_CONFIG_FILES([utils/Makefile
-     utils/pack/Makefile])
+     utils/pack/Makefile
+     utils/mkspr/Makefile])
 ])
-AS_IF([test "$have_docs" = "yes"], [
+AS_IF([test "x$have_docs" = "xyes"], [
   AC_CONFIG_FILES([docs/Makefile])
 ])
 
@@ -539,8 +545,11 @@ AC_MSG_NOTICE([sound backends:])
 AC_MSG_NOTICE([  OpenAL:    $have_openal])
 AC_MSG_NOTICE([  SDL_mixer: $have_sdlmixer])
 echo
+AC_MSG_NOTICE([utils:       $have_utils])
+AC_MSG_NOTICE([  mkspr:     $have_mkspr])
+echo
 AC_MSG_NOTICE([debug mode:  $enable_debug])
-AS_IF([test "$enable_debug" != "no"], [
+AS_IF([test "x$enable_debug" != "xno"], [
    case "$host" in
      *-linux*)
        AC_MSG_NOTICE([  bfd:       $have_bfd])
