@@ -10,6 +10,7 @@
 
 #include "opengl.h"
 #include "pilot.h"
+#include "space.h"
 
 
 /*
@@ -38,6 +39,7 @@ void gui_setNav (void);
 void gui_setTarget (void);
 void gui_setShip (void);
 void gui_setSystem (void);
+void gui_setGeneric (Pilot* pilot);
 
 
 /*
@@ -64,6 +66,9 @@ int gui_messageGetVisible (void);
  */
 int gui_radarInit( int circle, int w, int h );
 void gui_radarRender( double x, double y );
+void gui_radarGetPos( int *x, int *y );
+void gui_radarGetDim( int *w, int *h );
+void gui_radarGetRes( int *res );
 
 
 /*
@@ -100,6 +105,8 @@ void gui_setRadarRel( int mod );
 void gui_getOffset( double *x, double *y );
 glTexture* gui_hailIcon (void);
 char* gui_pick (void);
+int gui_onScreenPilot( double *rx, double *ry, Pilot *pilot );
+int gui_onScreenAsset( double *rx, double *ry, JumpPoint *jp, Planet *pnt );
 
 
 #endif /* GUI_H */

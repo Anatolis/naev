@@ -6,7 +6,8 @@
 --      3 - The player has found the FLF base for the Dvaered, or has betrayed the FLF after rescuing the agent. Conditional for dv_antiflf03
 --]]
 
-include "scripts/proximity.lua"
+include("scripts/fleethelper.lua")
+include("scripts/proximity.lua")
 
 -- localization stuff, translators would work here
 lang = naev.lang()
@@ -19,6 +20,7 @@ else -- default english
     osd_desc = {}
     FLFosd = {}
     DVosd = {}
+    refuelmsg = {}
     
     introfirst = [[    The FLF officer doesn't seem at all surprised that you approached her. On the contrary, she looks like she expected you to do so all along.
     "Greetings," she says, nodding at you in curt greeting. "I am Corporal Benito. And you are %s, the guy who got Lt. Fletcher back here in one piece. Oh yes, I know all about that. It's not a secret, after all. Besides, you can't keep anything a secret for long on a station like this in the first place." Benito's expression becomes a little more severe. "I'm not here to exhange pleasantries, however. You probably noticed, but people here are a little uneasy about your presence. They don't know what to make of you, see. You helped us once, it is true, but that doesn't tell us much. We don't know you."
@@ -83,7 +85,11 @@ else -- default english
     "Anyway. I promised you money, status and opportunities, and I intend to make good on those promises. Your money is already in your account. Check your balance sheet later. As for status, I can assure you that no Dvaered will find out what you've been up to. As far as the military machine is concerned, you have nothing to do with the FLF. In fact, you're known as an important ally in the fight against them! Finally, opportunities. We're analyzing the data from your flight recorder as we speak, and you'll be asked a few questions after we're done here. Based on that, we can form a new strategy against the FLF. Unless I miss my guess by a long shot, we'll be moving against them in force very soon, and I will make sure you'll be given the chance to be part of that. I'm sure it'll be worth your while."]]
     DVtext[5] = [[    Urnus stands up, a sign that this meeting is drawing to a close. "Keep your eyes open for one of our liaisons, citizen. He'll be your ticket into the upcoming battle. Now, I'm a busy man so I'm going to have to ask you to leave. But I hope we'll meet again, and if you continue to build your career like you have today, I'm sure we will. Good day to you!"
     You leave the Colonel's office. You are then taken to an interrogation room, where Dvaered petty officers question you politely yet persistently about your brief stay with the FLF. Once their curiosity is satisfied, they let you go, and you are free to return to your ship.]]
-    
+
+   refuelmsg[1] = "Out of fuel"
+   refuelmsg[2] = [[    One of your wingmen greets you. "Looks like you don't have enough fuel to make the next jump. We don't leave our comrades behind, so I've got some fuel available if you need it." ]]
+   refuelmsg[3] = [[    Another wingman greets you, looking decidedly bemused this time. "You're out of fuel again?! Look, I can spare you some fuel, but you've really got to get your act together. Pick up a fuel pod or something."]]
+
     failtitle = "All your wingmen are dead!"
     failtext = [[You receive a coded transmission from FLF command. It reads, "It seems your wing has been wiped out. It's too dangerous to let you continue the mission alone. Abort the operation and return to base."]]
     
@@ -94,14 +100,13 @@ else -- default english
     misn_title = "Disrupt the Dvaered Patrols"
     misn_desc = "To prove yourself to the FLF, you must lead a wing of fighters into Dvaered space and take out their security patrols. Note that you must do this mission in a Fighter, Scout or Yacht class ship."
     misn_rwrd = "A chance to make friends out of the FLF."
-    osd_desc[1] = "Fly to a designated system"
+    osd_desc[1] = "Fly to the designated system"
     osd_desc[2] = "Wait for the Dvaered patrol to arrive and engage"
     FLFosd[2] = "Return to the FLF base"
     DVosd[1] = "Destroy your wingmen!"
     DVosd[2] = "Fly to the %s system and land on %s"
         
     npc_desc = "There is a low-ranking officer of the Frontier Liberation Front sitting at one at the tables. She seems somewhat more receptive than most people in the bar."
-    
 end
 
 function create()
@@ -153,8 +158,8 @@ function accept()
 
             misn.setReward(misn_rwrd)
             
-            escarmor = {100, 100, 100, 100}
-            escshield = {100, 100, 100, 100}
+            escarmor = { 100, 100, 100, 100, 100, 100 }
+            escshield = { 100, 100, 100, 100, 100, 100 }
             escarmor["__save"] = true
             escshield["__save"] = true
 
@@ -223,17 +228,17 @@ function takeoff()
     end
 
     -- Add the FLF wing, no need to keep track of health since it's a takeoff situation (other than death, obviously)
-    fleetFLF = pilot.add("Vendetta Quartet", string.format("escort*%u", player.pilot():id()), player.pos())
+    fleetFLF = addRawShips( { "Vendetta", "Lancelot" }, string.format("escort*%u", player.pilot():id()), player.pos(), "FLF", 3 )
     for i, j in ipairs (fleetFLF) do
         if escarmor[i] > 0 then
             j:rename("FLF Wingman")
-            j:setFriendly()
             j:setNodisable(true)
             j:setVisible(true)
             j:setHilight(true)
             hook.pilot(j, "death", "FLFdeath")
-            if not loyalFLF then
-                j:setFaction("FLF")
+            if loyalFLF then
+               j:setFaction("Independent")
+               j:setFriendly()
             end
         else
             j:rm()
@@ -319,7 +324,7 @@ function hail()
             for i, j in ipairs(fleetDV) do
                 if j:exists() then
                     j:setFriendly()
-                    j:changeAI("dvaered_nojump")
+                    j:changeAI("dvaered_norun")
                     if j:ship():class() == "Destroyer" then
                         j:setInvincible(true) -- You're not going to lose at this point anyway, and Urnus shouldn't die, we still need him.
                     end
@@ -356,7 +361,7 @@ end
 -- Spawns the FLF wingmen when the player jumps into a new system.
 function spawnFLF()
     -- Add the FLF wing, keep track of their health
-    fleetFLF = pilot.add("Vendetta Quartet", string.format("escort*%u", player.pilot():id()), last_sys)
+    fleetFLF = addRawShips( { "Vendetta", "Lancelot" }, string.format("escort*%u", player.pilot():id()), last_sys, "FLF", 3 )
     for i, j in ipairs (fleetFLF) do
         if escarmor[i] > 0 then
             j:setHealth(escarmor[i], escshield[i])
@@ -370,11 +375,15 @@ function spawnFLF()
                 j:control()
                 j:attack(player.pilot())
             else
+                j:setFaction("Independent")
                 j:setFriendly()
             end
         else
             j:rm()
         end
+    end
+    if not sysname[system.cur():name()] then
+        refuelPlayer()
     end
 end
 
@@ -387,11 +396,32 @@ function commFLF(commmsg)
     end
 end
 
+function spawnPickJump( last_sys )
+    local sys
+    local systems = system.cur():adjacentSystems()
+    local n = #systems
+
+    while n > 2 do -- Shuffle the array randomly.
+        local k = rnd.rnd(1,n)
+        systems[n], systems[k] = systems[k], systems[n]
+        n = n - 1
+    end
+    for i=1,#systems do
+        if systems[i] ~= last_sys then -- We really don't want the Dvaered coming in from behind.
+            return systems[i]
+        end
+    end
+    return last_sys -- Weren't able to find any others.
+end
+
 -- Spawns a small Dvaered patrol
 function spawnSmallDV()
     player.allowLand(false, "FLF scum isn't welcome here!")
-    fleetDV = pilot.add("Dvaered Small Patrol", "dvaered_nojump", system.cur():adjacentSystems()[rnd.rnd(1, #system.cur():adjacentSystems())])
+    local spawnjump = spawnPickJump( last_sys )
+    fleetDV = pilot.add("Dvaered Small Patrol", "dvaered_norun", spawnjump )
     for i, j in ipairs(fleetDV) do
+        local r = j:rmOutfit("Shredder", j:ship():slots() ) -- Shredders are scary.
+        j:addOutfit("Vulcan Gun", r )
         j:rename(string.format("Dvaered Patrol %s", j:ship():class()))
         hook.pilot(j, "death", "DVdeath")
         j:setHostile()
@@ -401,7 +431,7 @@ function spawnSmallDV()
     for i, j in ipairs (fleetFLF) do
         if j:exists() then
             j:setFaction("FLF")
-            j:changeAI("flf_nojump")
+            j:changeAI("flf_norun")
         end
     end
     hook.timer(3000, "commFLF", flfcomm[1])
@@ -410,12 +440,13 @@ end
 -- Spawns a big Dvaered patrol
 function spawnBigDV()
     player.allowLand(false, "FLF scum isn't welcome here!")
-    fleetDV = pilot.add("Dvaered Big Patrol", "dvaered_nojump", system.cur():adjacentSystems()[rnd.rnd(1, #system.cur():adjacentSystems())])
+    local spawnjump = spawnPickJump( last_sys )
+    fleetDV = pilot.add("Dvaered Big Patrol", "dvaered_norun", spawnjump)
     for i, j in ipairs(fleetDV) do
         if j:ship():class() == "Destroyer" then -- It's a mini-boss of sorts, but it should still be dumbed down.
             boss = j
             boss:rmOutfit("all")
-            boss:addOutfit("Plasma Blaster MK2", 2)
+            boss:addOutfit("Turreted Gauss Gun", 2)
             boss:addOutfit("Shield Booster", 1)
             boss:addOutfit("Steering Thrusters", 1)
             boss:addOutfit("Shield Capacitor III", 1)
@@ -426,6 +457,8 @@ function spawnBigDV()
         else
             j:rename(string.format("Dvaered Patrol %s", j:ship():class()))
         end
+        local r = j:rmOutfit("Shredder", j:ship():slots() ) -- Shredders are scary.
+        j:addOutfit("Vulcan Gun", r )
         j:setHostile()
         j:setVisible(true)
         j:setHilight(true)
@@ -434,7 +467,7 @@ function spawnBigDV()
     for i, j in ipairs (fleetFLF) do
         if j:exists() then
             j:setFaction("FLF")
-            j:changeAI("flf_nojump")
+            j:changeAI("flf_norun")
         end
     end
     
@@ -471,8 +504,10 @@ function DVdeath()
         for _, j in ipairs(fleetFLF) do
             if j:exists() then
                 j:changeAI(string.format("escort*%u", player.pilot():id()))
+                j:setFuel(true)
             end
         end
+        refuelPlayer()
     end
 end
 
@@ -508,6 +543,31 @@ function winDV()
             j:changeAI("flee")
         end
     end
+end
+
+function refuelPlayer()
+    if player.fuel() < 100 then
+        for i, j in ipairs (fleetFLF) do
+            if j:exists() then
+                j:setFuel(true)
+                j:memory( "refuel", 0 )
+                j:memory( "refuel_msg", "Roger that." )
+                j:hailPlayer()
+                refhook = hook.pilot( j, "hail", "refuelhail", j )
+                break
+            end
+        end
+    end
+end
+
+function refuelhail()
+    if not refuelled then
+        tk.msg( refuelmsg[1], refuelmsg[2] )
+        refuelled = 1
+    else
+        tk.msg( refuelmsg[1], refuelmsg[3] )
+    end
+    hook.rm(refhook)
 end
 
 function abort()

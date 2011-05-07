@@ -31,6 +31,7 @@
 #include "conf.h"
 #include "pilot_heat.h"
 #include "nstring.h"
+#include "pilot.h"
 
 
 #define outfit_setProp(o,p)      ((o)->properties |= p) /**< Checks outfit property. */
@@ -230,13 +231,15 @@ int outfit_compareTech( const void *outfit1, const void *outfit2 )
  *    @param[out] dshield Real shield damage.
  *    @param[out] darmour Real armour damage.
  *    @param[out] knockback Knocback modifier.
+ *    @param[in] stats Stats to calculate with.
  *    @param[in] dtype Damage type.
  *    @param[in] dmg Amoung of damage.
  */
 void outfit_calcDamage( double *dshield, double *darmour, double *knockback,
-      DamageType dtype, double dmg )
+      const ShipStats *stats, DamageType dtype, double dmg )
 {
-   double ds, da, kn;
+   double ds, da, kn, nms, nma;
+
    switch (dtype) {
       case DAMAGE_TYPE_ENERGY:
          ds = dmg*1.1;
@@ -256,6 +259,19 @@ void outfit_calcDamage( double *dshield, double *darmour, double *knockback,
       case DAMAGE_TYPE_RADIATION:
          ds = dmg*0.15; /* still take damage, just not much */
          da = dmg;
+         kn = 0.8;
+         break;
+      case DAMAGE_TYPE_NEBULA:
+         if (stats != NULL) {
+            nms = stats->nebula_dmg_shield;
+            nma = stats->nebula_dmg_armour;
+         }
+         else {
+            nms = 1.;
+            nma = 1.;
+         }
+         ds = dmg * 0.15 * nms;
+         da = dmg * nma;
          kn = 0.8;
          break;
       case DAMAGE_TYPE_EMP:
@@ -861,6 +877,32 @@ int outfit_fitsSlot( const Outfit* o, const OutfitSlot* s )
 }
 
 
+/**
+ * @brief Checks to see if an outfit fits a slot type (ignoring size).
+ *
+ *    @param o Outfit to see if fits in a slot.
+ *    @param s Slot to see if outfit fits in.
+ *    @return 1 if outfit fits the slot, 0 otherwise.
+ */
+int outfit_fitsSlotType( const Outfit* o, const OutfitSlot* s )
+{
+   const OutfitSlot *os;
+   os = &o->slot;
+
+   /* Outfit must have valid slot type. */
+   if ((os->type == OUTFIT_SLOT_NULL) ||
+      (os->type == OUTFIT_SLOT_NA))
+      return 0;
+
+   /* Outfit type must match outfit slot. */
+   if (os->type != s->type)
+      return 0;
+
+   /* It meets all criteria. */
+   return 1;
+}
+
+
 #define O_CMP(s,t) \
 if (strcasecmp(buf,(s))==0) return t /**< Define to help with outfit_strToOutfitType. */
 /**
@@ -1054,7 +1096,6 @@ static void outfit_parseSBolt( Outfit* temp, const xmlNodePtr parent )
 
    /* Post processing. */
    temp->u.blt.delay   /= 1000.;
-   temp->u.blt.damage  *= temp->u.blt.delay;
    temp->u.blt.swivel  *= M_PI/180.;
    if (outfit_isTurret(temp))
       temp->u.blt.swivel = M_PI;
@@ -1185,7 +1226,6 @@ static void outfit_parseSBeam( Outfit* temp, const xmlNodePtr parent )
 
    /* Post processing. */
    temp->u.bem.delay /= 1000.;
-   temp->u.bem.damage *= temp->u.bem.delay;
    temp->u.bem.turn   *= M_PI/180.; /* Convert to rad/s. */
 
    /* Set default outfit size if necessary. */
@@ -1843,7 +1883,7 @@ static int outfit_parse( Outfit* temp, const xmlNodePtr parent )
             xml_onlyNodes(cur);
             xmlr_strd(cur,"license",temp->license);
             xmlr_float(cur,"mass",temp->mass);
-            xmlr_int(cur,"price",temp->price);
+            xmlr_long(cur,"price",temp->price);
             xmlr_strd(cur,"description",temp->description);
             xmlr_strd(cur,"typename",temp->typename);
             if (xml_isNode(cur,"gfx_store")) {

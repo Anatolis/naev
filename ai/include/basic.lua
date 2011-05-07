@@ -72,6 +72,7 @@ function __goto_precise ()
    -- Handle finished
    if ai.isstopped() and dist < 10 then
       ai.poptask() -- Finished
+      return
    end
 
    local bdist    = ai.minbrakedist()
@@ -231,6 +232,8 @@ function __landstop ()
       ai.stop() -- Will stop the pilot if below err vel
       if not ai.land() then
          ai.popsubtask()
+      else
+         ai.poptask() -- Done, pop task
       end
    end
 end
@@ -319,6 +322,9 @@ function hyperspace ()
    local target = ai.target()
    if target == nil then
       target = ai.rndhyptarget()
+      if target == nil then
+         return
+      end
    end
    ai.pushsubtask( "__hyp_approach", target )
 end

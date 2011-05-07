@@ -164,6 +164,7 @@ void weapon_minimap( const double res, const double w,
    Weapon *wp;
    glColour *c;
    GLsizei offset;
+   Pilot *par;
 
    /* Get offset. */
    p = 0;
@@ -171,6 +172,8 @@ void weapon_minimap( const double res, const double w,
 
    if (shape==RADAR_CIRCLE)
       rc = (int)(w*w);
+   else
+      rc = 0;
 
    /* Draw the points for weapons on all layers. */
    for (i=0; i<nwbackLayer; i++) {
@@ -194,10 +197,17 @@ void weapon_minimap( const double res, const double w,
       if ((outfit_isSeeker(wp->outfit) && (wp->target != PLAYER_ID)) ||
             (wp->faction == FACTION_PLAYER))
          c = &cNeutral;
-      else if (wp->target == PLAYER_ID || areEnemies(FACTION_PLAYER, wp->faction))
-         c = &cHostile;
-      else
-         c = &cNeutral;
+      else {
+         if (wp->target == PLAYER_ID)
+            c = &cHostile;
+         else {
+            par = pilot_get(wp->parent);
+            if ((par!=NULL) && pilot_isHostile(par))
+               c = &cHostile;
+            else
+               c = &cNeutral;
+         }
+      }
 
       /* Set the colour. */
       weapon_vboData[ offset + 4*p + 0 ] = c->r;
@@ -866,14 +876,15 @@ static void weapon_update( Weapon* w, const double dt, WeaponLayer layer )
    Pilot *p;
 
    /* Get the sprite direction to speed up calculations. */
-   b = outfit_isBeam(w->outfit);
+   b     = outfit_isBeam(w->outfit);
    if (!b) {
       gfx = outfit_gfx(w->outfit);
       gl_getSpriteFromDir( &w->sx, &w->sy, gfx, w->solid->dir );
    }
+   else
+      gfx = NULL;
 
    for (i=0; i<pilot_nstack; i++) {
-
       p = pilot_stack[i];
 
       psx = pilot_stack[i]->tsx;
@@ -1191,6 +1202,7 @@ static void weapon_createBolt( Weapon *w, const Outfit* outfit, double T,
    double mass, rdir;
    Pilot *pilot_target;
    double acc;
+   glTexture *gfx;
 
    /* Only difference is the direction of fire */
    if ((w->parent!=w->target) && (w->target != 0)) { /* Must have valid target */
@@ -1230,6 +1242,10 @@ static void weapon_createBolt( Weapon *w, const Outfit* outfit, double T,
          w->solid->pos.y,
          w->solid->vel.x,
          w->solid->vel.y);
+
+   /* Set facing direction. */
+   gfx = outfit_gfx( w->outfit );
+   gl_getSpriteFromDir( &w->sx, &w->sy, gfx, w->solid->dir );
 }
 
 
@@ -1252,6 +1268,7 @@ static void weapon_createAmmo( Weapon *w, const Outfit* outfit, double T,
    double mass, rdir;
    Pilot *pilot_target;
    double ew_evasion;
+   glTexture *gfx;
 
    pilot_target = NULL;
    if (w->outfit->type == OUTFIT_TYPE_TURRET_AMMO) {
@@ -1306,6 +1323,10 @@ static void weapon_createAmmo( Weapon *w, const Outfit* outfit, double T,
          w->solid->pos.y,
          w->solid->vel.x,
          w->solid->vel.y);
+
+   /* Set facing direction. */
+   gfx = outfit_gfx( w->outfit );
+   gl_getSpriteFromDir( &w->sx, &w->sy, gfx, w->solid->dir );
 }
 
 
@@ -1423,7 +1444,7 @@ void weapon_add( const Outfit* outfit, const double T, const double dir,
    }
 
    layer = (parent->id==PLAYER_ID) ? WEAPON_LAYER_FG : WEAPON_LAYER_BG;
-   w = weapon_create( outfit, T, dir, pos, vel, parent, target );
+   w     = weapon_create( outfit, T, dir, pos, vel, parent, target );
 
    /* set the proper layer */
    switch (layer) {

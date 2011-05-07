@@ -14,7 +14,7 @@
 
 #include <stdlib.h>
 
-#include "lauxlib.h"
+#include <lauxlib.h>
 
 #include "nlua.h"
 #include "nluadef.h"
@@ -349,7 +349,7 @@ static int time_get( lua_State *L )
  * @usage strt = time.str( time.get() + time.create(0,5,0) ) -- Gets time in 5 STP
  * @usage strt = t:str() -- Gets the string of t
  *
- *    @luaparam t Time to convert to pretty format.  If ommitted, current time is used.
+ *    @luaparam t Time to convert to pretty format.  If omitted, current time is used.
  *    @luaparam d Decimals to use for displaying STU (should be between 0 and 5).
  *    @luareturn The time in human readable format.
  * @luafunc str( t, d )
@@ -423,7 +423,7 @@ static int time_tonumber( lua_State *L )
  *
  *    @luaparam num Number to get time from.
  *    @luareturn Time representing number.
- * @luafunc tonumber( num )
+ * @luafunc fromnumber( num )
  */
 static int time_fromnumber( lua_State *L )
 {

@@ -42,7 +42,6 @@
 #include <png.h>
 
 #include "SDL.h"
-#include "SDL_image.h"
 #include "SDL_version.h"
 
 #include "log.h"
@@ -149,7 +148,6 @@ int SDL_SavePNG( SDL_Surface *surface, const char *file )
    SDL_Rect rtemp;
 #if ! SDL_VERSION_ATLEAST(1,3,0)
    unsigned int surf_flags;
-   unsigned int surf_alpha;
 #endif /* SDL_VERSION_ATLEAST(1,3,0) */
 
    /* Initialize parameters. */
@@ -169,7 +167,6 @@ int SDL_SavePNG( SDL_Surface *surface, const char *file )
    ss_surface = SDL_CreateRGBSurface( 0, ss_w, ss_h, 32, RGBAMASK );
 #else /* SDL_VERSION_ATLEAST(1,3,0) */
    surf_flags = surface->flags & (SDL_SRCALPHA | SDL_SRCCOLORKEY);
-   surf_alpha = surface->format->alpha;
    if ((surf_flags & SDL_SRCALPHA) == SDL_SRCALPHA) {
       SDL_SetAlpha( surface, 0, SDL_ALPHA_OPAQUE );
       SDL_SetColorKey( surface, 0, surface->format->colorkey );
@@ -353,11 +350,11 @@ static int gl_setupAttributes (void)
 #if SDL_VERSION_ATLEAST(1,3,0)
       SDL_GL_SetSwapInterval(1);
 #else /* SDL_VERSION_ATLEAST(1,3,0) */
-#ifdef SDL_GL_SWAP_CONTROL
+#if SDL_VERSION_ATLEAST(1,2,10)
       SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
-#else /* SDL_GL_SWAP_CONTROL */
+#else /* SDL_VERSION_ATLEAST(1,2,10) */
       DEBUG("VSync unsupported on old SDL versions (before 1.2.10).");
-#endif /* SDL_GL_SWAP_CONTROL */
+#endif /* SDL_VERSION_ATLEAST(1,2,10) */
 #endif /* SDL_VERSION_ATLEAST(1,3,0) */
 
    return 0;
@@ -720,7 +717,7 @@ void gl_viewport( int x, int y, int w, int h )
             gl_screen.nh, /* Top edge. */
             -1., /* near */
             1. ); /* far */
-   
+
    /* Take into accunt possible translation. */
    gl_screen.x = x;
    gl_screen.y = y;
@@ -762,9 +759,6 @@ void gl_defViewport (void)
  */
 void gl_windowToScreenPos( int *sx, int *sy, int wx, int wy )
 {
-   double x,y;
-   x   = wx;
-   y   = wy;
    *sx = gl_screen.mxscale * (double)(wx - gl_screen.x);
    *sy = gl_screen.myscale * (double)(gl_screen.rh - wy - gl_screen.y);
 }

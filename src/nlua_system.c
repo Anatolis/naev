@@ -12,7 +12,7 @@
 
 #include "naev.h"
 
-#include "lauxlib.h"
+#include <lauxlib.h>
 
 #include "nlua.h"
 #include "nluadef.h"
@@ -41,6 +41,7 @@ static int systemL_planets( lua_State *L );
 static int systemL_presence( lua_State *L );
 static int systemL_radius( lua_State *L );
 static int systemL_isknown( lua_State *L );
+static int systemL_setknown( lua_State *L );
 static int systemL_mrkClear( lua_State *L );
 static int systemL_mrkAdd( lua_State *L );
 static int systemL_mrkRm( lua_State *L );
@@ -60,6 +61,7 @@ static const luaL_reg system_methods[] = {
    { "presence", systemL_presence },
    { "radius", systemL_radius },
    { "isKnown", systemL_isknown },
+   { "setKnown", systemL_setknown },
    { "mrkClear", systemL_mrkClear },
    { "mrkAdd", systemL_mrkAdd },
    { "mrkRm", systemL_mrkRm },
@@ -691,6 +693,30 @@ static int systemL_isknown( lua_State *L )
 
 
 /**
+ * @brief Sets a system's known state.
+ *
+ * @usage s:setKnown( false ) -- Makes system unknown.
+ *    @luaparam s System to set known.
+ *    @luaparam b Whether or not to set as known (defaults to false).
+ * @luafunc setKnown( s, b )
+ */
+static int systemL_setknown( lua_State *L )
+{
+   int b;
+   StarSystem *sys;
+
+   sys = luaL_validsystem(L, 1);
+   b   = lua_toboolean(L, 2);
+
+   if (b)
+      sys_setFlag( sys, SYSTEM_KNOWN );
+   else
+      sys_rmFlag( sys, SYSTEM_KNOWN );
+   return 0;
+}
+
+
+/**
  * @brief Clears the system markers.
  *
  * This can be dangerous and clash with other missions, do not try this at home kids.
@@ -740,13 +766,13 @@ static int systemL_mrkAdd( lua_State *L )
  * @usage system.mrkRm( mrk_id ) -- Removes a marker by mrk_id
  *
  *    @luaparam id ID of the marker to remove.
- * @luaparam mrkRm( id )
+ * @luafunc mrkRm( id )
  */
 static int systemL_mrkRm( lua_State *L )
 {
    unsigned int id;
    id = luaL_checklong( L, 1 );
-   ovr_mrkRm( id );   
+   ovr_mrkRm( id );
    return 0;
 }
 

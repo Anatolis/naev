@@ -37,14 +37,14 @@
 #include "menu.h"
 
 
-int dialogue_open; /**< Number of dialogues open. */
+static int dialogue_open; /**< Number of dialogues open. */
 
 
 /*
  * Prototypes.
  */
 /* extern */
-extern void main_loop (void); /* from naev.c */
+extern void main_loop( int update ); /* from naev.c */
 /* generic */
 static void dialogue_close( unsigned int wid, char* str );
 static void dialogue_cancel( unsigned int wid, char* str );
@@ -80,6 +80,8 @@ static void dialogue_close( unsigned int wid, char* str )
    window_destroy( wid );
    *loop_done = 1;
    dialogue_open--;
+   if (dialogue_open < 0)
+      WARN("Dialogue counter not in sync!");
 }
 
 
@@ -94,6 +96,8 @@ static void dialogue_cancel( unsigned int wid, char* str )
    window_destroy( wid );
    *loop_done = -1;
    dialogue_open--;
+   if (dialogue_open < 0)
+      WARN("Dialogue counter not in sync!");
 }
 
 
@@ -299,12 +303,16 @@ int dialogue_YesNoRaw( const char* caption, const char *msg )
 static void dialogue_YesNoClose( unsigned int wid, char* str )
 {
    int *loop_done, result;
-   
+
    /* store the result */
    if (strcmp(str,"btnYes")==0)
       result = 1;
    else if (strcmp(str,"btnNo")==0)
       result = 0;
+   else {
+      WARN("Unknown button clicked in YesNo dialogue!");
+      result = 1;
+   }
 
    /* set data. */
    loop_done = window_getData( wid );
@@ -401,9 +409,11 @@ char* dialogue_inputRaw( const char* title, int min, int max, const char *msg )
    }
 
    /* cleanup */
-   window_destroy( input_wid );
+   if (input != NULL) {
+      window_destroy( input_wid );
+      dialogue_open--;
+   }
    input_wid = 0;
-   dialogue_open--;
 
    /* return the result */
    return input;
@@ -619,6 +629,12 @@ static void dialogue_choiceClose( unsigned int wid, char* str )
  *
  * Almost identical to the main loop in naev.c.
  *
+ * @TODO Fix this, we need proper threading as the music Lua and dialogue running Lua
+ *       may be run in parallel and this will make everyone cry. So basically we have
+ *       a race condition due to the "threading" effect this creates. Solved most of
+ *       it by removing globals in the lua event/mission code, but this doesn't mean
+ *       it's solved. It just means it's extremely unlikely.
+ *
  *    @return 0 on success.
  */
 static int toolkit_loop( int *loop_done )
@@ -631,7 +647,7 @@ static int toolkit_loop( int *loop_done )
    *loop_done = 0;
    while (!(*loop_done) && toolkit_isOpen()) {
       /* Loop first so exit condition is checked before next iteration. */
-      main_loop();
+      main_loop( 0 );
 
       while (SDL_PollEvent(&event)) { /* event loop */
          if (event.type == SDL_QUIT) { /* pass quit event to main engine */

@@ -31,7 +31,7 @@ else -- default english
     --=== GOOD EVENTS ===--
     gtitle = "Lucky find!"
     gtext = {}
-    gtext[1] = [[The derelict appears deserted, its passengers long gone. However, they seem to have left behind a small amound of credit chips in their hurry to leave! You decide to help yourself to them, and leave the derelict.]]
+    gtext[1] = [[The derelict appears deserted, its passengers long gone. However, they seem to have left behind a small amount of credit chips in their hurry to leave! You decide to help yourself to them, and leave the derelict.]]
     gtext[2] = [[The derelict is empty, and seems to have been thoroughly picked over by other space bucceneers. However, the ship's computer contains an updated map of the surrounding systems! You download it into your own computer.]]
     gtext[3] = [[This ship looks like any old piece of scrap at a glance, but it is actually an antique, one of the very first of its kind ever produced! Museums all over the galaxy would love to have a ship like this. You plant a beacon on the derelict to mark it for salvaging, and contact the %s authorities. Your reputation with them has slightly improved.]]
     
@@ -65,11 +65,12 @@ function create ()
     
     -- Create the derelict.
     angle = rnd.rnd() * 2 * math.pi
-    dist  = rnd.rnd(400, 1000)
+    dist  = rnd.rnd(400, system.cur():radius() * 0.6)
     pos   = vec2.new( dist * math.cos(angle), dist * math.sin(angle) )
     p     = pilot.add(ship, "dummy", pos)[1]
     p:setFaction("Derelict")
     p:disable()
+    p:rename("Derelict")
     hook.pilot(p, "board", "board")
     hook.pilot(p, "death", "destroyevent")
     hook.enter("destroyevent")
@@ -130,7 +131,8 @@ function badevent()
     if event == 1 then
         tk.msg(btitle, btext[1])
         p:setHealth(0,0)
-        player.pilot():setHealth(30, 0)
+        player.pilot():control(true)
+        hook.pilot( p, "exploded", "derelict_exploded" )
     elseif event == 2 then
         tk.msg(btitle, btext[2])
         player.pilot():setFuel(false)
@@ -164,6 +166,11 @@ function badevent()
     destroyevent()
 end
 
+function derelict_exploded()
+   player.pilot():control(false)
+   player.pilot():setHealth( 42, 0 ) -- Not pretty, but we can fix it properly post-beta.
+end
+
 function missionevent()
     -- Fetch all missions that haven't been flagged as done yet.
     local mymissions = {}
@@ -180,7 +187,7 @@ function missionevent()
     else
         -- Roll a random mission and start it.
         local select = rnd.rnd(1, #mymissions)
-        evt.misnStart(mymissions[select])
+        naev.missionStart(mymissions[select])
     
         destroyevent()
     end

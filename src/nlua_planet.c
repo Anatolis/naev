@@ -12,7 +12,7 @@
 
 #include "naev.h"
 
-#include "lauxlib.h"
+#include <lauxlib.h>
 
 #include "nlua.h"
 #include "nluadef.h"
@@ -200,15 +200,15 @@ static int planetL_cur( lua_State *L )
 {
    LuaPlanet planet;
    LuaSystem sys;
-   if (land_planet != NULL) {
-      planet.id = planet_index(land_planet);
-      lua_pushplanet(L,planet);
-      sys.id = system_index( system_get( planet_getSystem(land_planet->name) ) );
-      lua_pushsystem(L,sys);
-      return 2;
+   if (land_planet == NULL) {
+      NLUA_ERROR(L,"Attempting to get landed planet when player not landed.");
+      return 0; /* Not landed. */
    }
-   NLUA_ERROR(L,"Attempting to get landed planet when player not landed.");
-   return 0; /* Not landed. */
+   planet.id = planet_index(land_planet);
+   lua_pushplanet(L,planet);
+   sys.id = system_index( system_get( planet_getSystem(land_planet->name) ) );
+   lua_pushsystem(L,sys);
+   return 2;
 }
 
 
@@ -293,8 +293,10 @@ static int planetL_get( lua_State *L )
       lua_pushnil(L);
       i = 0;
       while (lua_next(L, -2) != 0) {
-         f = lua_tofaction(L, -1);
-         factions[i++] = f->f;
+         if (lua_isfaction(L, -1)) {
+            f = lua_tofaction(L, -1);
+            factions[i++] = f->f;
+         }
          lua_pop(L,1);
       }
 
@@ -302,13 +304,12 @@ static int planetL_get( lua_State *L )
       planets = space_getFactionPlanet( &nplanets, factions, nfactions );
       free(factions);
    }
-   else 
+   else
       NLUA_INVALID_PARAMETER(L); /* Bad Parameter */
 
    /* No suitable planet found */
-   if ((rndplanet == NULL) && (planets == NULL)) {
+   if ((rndplanet == NULL) && ((planets == NULL) || nplanets == 0))
       return 0;
-   }
    /* Pick random planet */
    else if (rndplanet == NULL) {
       rndplanet = planets[RNG(0,nplanets-1)];
@@ -328,7 +329,7 @@ static int planetL_get( lua_State *L )
    }
    sys = system_get( sysname );
    if (sys == NULL) {
-      NLUA_ERROR(L, "Planet '%s' can't find system '%s'", rndplanet, sysname); 
+      NLUA_ERROR(L, "Planet '%s' can't find system '%s'", rndplanet, sysname);
       return 0;
    }
    planet.id = planet_index( pnt );
@@ -429,7 +430,7 @@ static int planetL_class(lua_State *L )
  *  - "outfits"<br />
  *  - "shipyard"<br />
  *
- * @usage if p:serivces()["refuel"] then -- PLanet has refuel service.
+ * @usage if p:services()["refuel"] then -- Planet has refuel service.
  * #usage if p:services()["shipyard"] then -- Planet has shipyard service.
  *    @luaparam p Planet to get the services of.
  *    @luareturn Table containing all the services.

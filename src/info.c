@@ -80,6 +80,7 @@ static void weapons_update( unsigned int wid, char *str );
 static void weapons_rename( unsigned int wid, char *str );
 static void weapons_autoweap( unsigned int wid, char *str );
 static void weapons_fire( unsigned int wid, char *str );
+static void weapons_inrange( unsigned int wid, char *str );
 static void weapons_renderLegend( double bx, double by, double bw, double bh, void* data );
 static void info_openStandings( unsigned int wid );
 static void standings_update( unsigned int wid, char* str );
@@ -277,10 +278,11 @@ static void info_openShip( unsigned int wid )
  */
 static void ship_update( unsigned int wid )
 {
-   char buf[1024];
+   char buf[1024], *hyp_delay;
    int cargo;
 
    cargo = pilot_cargoUsed( player.p ) + pilot_cargoFree( player.p );
+   hyp_delay = ntime_pretty( pilot_hyperspaceDelay( player.p ), 2 );
    snprintf( buf, sizeof(buf),
          "%s\n"
          "%s\n"
@@ -307,7 +309,7 @@ static void ship_update( unsigned int wid )
          player.p->cpu_max,
          /* Movement. */
          player.p->solid->mass,
-         ntime_pretty( pilot_hyperspaceDelay( player.p ), 2 ),
+         hyp_delay,
          player.p->thrust / player.p->solid->mass,
          player.p->speed, solid_maxspeed( player.p->solid, player.p->speed, player.p->thrust ),
          player.p->turn*180./M_PI,
@@ -318,6 +320,7 @@ static void ship_update( unsigned int wid )
          pilot_cargoUsed( player.p ), cargo,
          player.p->fuel, player.p->fuel_max, pilot_getJumps(player.p));
    window_modifyText( wid, "txtDDesc", buf );
+   free( hyp_delay );
 }
 
 
@@ -338,11 +341,14 @@ static void info_openWeapons( unsigned int wid )
          "btnRename", "Rename", weapons_rename );
 
    /* Checkboxes. */
-   window_addCheckbox( wid, -20, 20+2*(BUTTON_HEIGHT+20), 250, BUTTON_HEIGHT,
+   window_addCheckbox( wid, 220, 20+2*(BUTTON_HEIGHT+20)-40, 250, BUTTON_HEIGHT,
          "chkAutoweap", "Automatically handle weapons", weapons_autoweap, player.p->autoweap );
-   window_addCheckbox( wid, -20, 20+2*(BUTTON_HEIGHT+20)+BUTTON_HEIGHT, 300, BUTTON_HEIGHT,
+   window_addCheckbox( wid, 220, 20+2*(BUTTON_HEIGHT+20)-10, 300, BUTTON_HEIGHT,
          "chkFire", "Enable fire mode (fires when activated)", weapons_fire,
          pilot_weapSetModeCheck( player.p, info_eq_weaps.weapons ) );
+   window_addCheckbox( wid, 220, 20+2*(BUTTON_HEIGHT+20)+20, 300, BUTTON_HEIGHT,
+         "chkInrange", "Only shoot weapons that are in range", weapons_inrange,
+         pilot_weapSetInrangeCheck( player.p, info_eq_weaps.weapons ) );
 
    /* Custom widget. */
    equipment_slotWidget( wid, 20, -40, 180, h-60, &info_eq_weaps );
@@ -413,6 +419,10 @@ static void weapons_update( unsigned int wid, char *str )
    window_checkboxSet( wid, "chkFire",
          pilot_weapSetModeCheck( player.p, pos ) );
 
+   /* Update inrange. */
+   window_checkboxSet( wid, "chkInrange",
+         pilot_weapSetInrangeCheck( player.p, pos ) );
+
    /* Update autoweap. */
    window_checkboxSet( wid, "chkAutoweap", player.p->autoweap );
 }
@@ -460,8 +470,8 @@ static void weapons_autoweap( unsigned int wid, char *str )
    /* Run autoweapons if needed. */
    if (state) {
       sure = dialogue_YesNoRaw( "Enable autoweapons?",
-            "Are you sure you want to enable autoweapons for the ship? This "
-            "action will rewrite your current weapon set." );
+            "Are you sure you want to enable automatic weapon groups for the "
+            "ship?\n\nThis will overwrite all manually-tweaked weapons groups." );
       if (!sure) {
          window_checkboxSet( wid, str, 0 );
          return;
@@ -480,11 +490,39 @@ static void weapons_autoweap( unsigned int wid, char *str )
  */
 static void weapons_fire( unsigned int wid, char *str )
 {
-   int state;
+   int i, state;
 
    /* Set state. */
    state = window_checkboxState( wid, str );
    pilot_weapSetMode( player.p, info_eq_weaps.weapons, state );
+
+   /* Check to see if they are all fire groups. */
+   for (i=0; i<PILOT_WEAPON_SETS; i++)
+      if (!pilot_weapSetModeCheck( player.p, i ))
+         break;
+
+   /* Not able to set them all to fire groups. */
+   if (i >= PILOT_WEAPON_SETS) {
+      dialogue_alert( "You can not set all your weapon sets to fire groups!" );
+      pilot_weapSetMode( player.p, info_eq_weaps.weapons, 0 );
+      window_checkboxSet( wid, str, 0 );
+   }
+
+   /* Set default if needs updating. */
+   pilot_weaponSetDefault( player.p );
+}
+
+
+/**
+ * @brief Sets the inrange property.
+ */
+static void weapons_inrange( unsigned int wid, char *str )
+{
+   int state;
+
+   /* Set state. */
+   state = window_checkboxState( wid, str );
+   pilot_weapSetInrange( player.p, info_eq_weaps.weapons, state );
 }
 
 
@@ -583,12 +621,9 @@ static void cargo_genList( unsigned int wid )
 static void cargo_update( unsigned int wid, char* str )
 {
    (void)str;
-   int pos;
 
    if (player.p->ncommodities==0)
       return; /* No cargo */
-
-   pos = toolkit_getListPos( wid, "lstCargo" );
 
    /* Can jettison all but mission cargo when not landed*/
    if (landed)
@@ -888,12 +923,9 @@ static void mission_menu_update( unsigned int wid, char* str )
 static void mission_menu_abort( unsigned int wid, char* str )
 {
    (void)str;
-   char *selected_misn;
    int pos;
    Mission* misn;
    int ret;
-
-   selected_misn = toolkit_getList( wid, "lstMission" );
 
    if (dialogue_YesNo( "Abort Mission",
             "Are you sure you want to abort this mission?" )) {

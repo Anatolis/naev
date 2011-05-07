@@ -5,7 +5,7 @@
 /**
  * @file ntime.c
  *
- * @brief Handles the NAEV time.
+ * @brief Handles the Naev time.
  *
  * 1 SCU =  5e3 STP = 50e6 STU
  * 1 STP = 10e3 STU
@@ -25,7 +25,7 @@
  *
  * Acronyms:
  *    - UST : Universal Synchronized Time
- *    - STU : Smallest named time unit. Equal to the Earth second. 
+ *    - STU : Smallest named time unit. Equal to the Earth second.
  *    - STP : Most commonly used time unit. STPs are the new hours. 1 STP = 10,000 STU (about 2.8 Earth hours).
  *    - SCU : Used for long-term time periods. 1 SCU = 5000 STP (about 579 Earth days).
  */
@@ -157,6 +157,17 @@ int ntime_getSTU( ntime_t t )
 
 
 /**
+ * @brief Converts the time to STU.
+ *    @param t Time to convert.
+ *    @return Time in STU.
+ */
+double ntime_convertSTU( ntime_t t )
+{
+   return ((double)t / (double)NT_STU_DIV);
+}
+
+
+/**
  * @brief Gets the remainder.
  */
 double ntime_getRemainder( ntime_t t )
@@ -243,7 +254,6 @@ void ntime_setR( int scu, int stp, int stu, double rem )
 void ntime_inc( ntime_t t )
 {
    naev_time += t;
-   hooks_run("time");
    economy_update( t );
 
    /* Run hooks. */
@@ -307,7 +317,6 @@ void ntime_refresh (void)
 
       /* Run hook stuff and actually update time. */
       naev_time += ntu->inc;
-      hooks_run("time");
       economy_update( ntu->inc );
 
       /* Remove the increment. */

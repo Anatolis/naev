@@ -54,6 +54,7 @@
 #define PILOT_HOOK_LAND    6 /**< Pilot is landing. */
 #define PILOT_HOOK_ATTACKED 7 /**< Pilot is in manual override and is being attacked. */
 #define PILOT_HOOK_IDLE    8 /**< Pilot is in manual override and has just become idle. */
+#define PILOT_HOOK_EXPLODED 9 /**< Pilot died and exploded (about to be removed). */
 
 
 /* damage */
@@ -86,29 +87,33 @@
 #define PILOT_COMBAT       13 /**< Pilot is engaged in combat. */
 #define PILOT_AFTERBURNER  14 /**< Pilot has his afterburner activated. */
 #define PILOT_HYP_PREP     15 /**< Pilot is getting ready for hyperspace. */
-#define PILOT_HYP_BEGIN    16 /**< Pilot is starting engines. */
-#define PILOT_HYPERSPACE   17 /**< Pilot is in hyperspace. */
-#define PILOT_HYP_END      18 /**< Pilot is exiting hyperspace. */
-#define PILOT_BOARDED      19 /**< Pilot has been boarded already. */
-#define PILOT_NOBOARD      20 /**< Pilot can't be boarded. */
-#define PILOT_BOARDING     21 /**< Pilot is currently boarding it's target. */
-#define PILOT_BRIBED       22 /**< Pilot has been bribed already. */
-#define PILOT_DISTRESSED   23 /**< Pilot has distressed once already. */
-#define PILOT_REFUELING    24 /**< Pilot is trying to refueling. */
-#define PILOT_REFUELBOARDING 25 /**< Pilot is actively refueling. */
-#define PILOT_MANUAL_CONTROL 26 /**< Pilot is under manual control of a mission or event. */
-#define PILOT_LANDING      27 /**< Pilot is landing. */
-#define PILOT_TAKEOFF      28 /**< Pilot is taking off. */
-#define PILOT_DISABLED     29 /**< Pilot is disabled. */
-#define PILOT_DEAD         30 /**< Pilot is in it's dying throes */
-#define PILOT_DEATH_SOUND  31 /**< Pilot just did death explosion. */
-#define PILOT_EXPLODED     32 /**< Pilot did final death explosion. */
-#define PILOT_DELETE       33 /**< Pilot will get deleted asap. */
-#define PILOT_VISPLAYER    34 /**< Pilot is always visible to the player (only player). */
-#define PILOT_VISIBLE      35 /**< Pilot is always visible to other pilots. */
+#define PILOT_HYP_BRAKE    16 /**< PIlot has already braked before jumping. */
+#define PILOT_HYP_BEGIN    17 /**< Pilot is starting engines. */
+#define PILOT_HYPERSPACE   18 /**< Pilot is in hyperspace. */
+#define PILOT_HYP_END      19 /**< Pilot is exiting hyperspace. */
+#define PILOT_BOARDED      20 /**< Pilot has been boarded already. */
+#define PILOT_NOBOARD      21 /**< Pilot can't be boarded. */
+#define PILOT_BOARDING     22 /**< Pilot is currently boarding it's target. */
+#define PILOT_BRIBED       23 /**< Pilot has been bribed already. */
+#define PILOT_DISTRESSED   24 /**< Pilot has distressed once already. */
+#define PILOT_REFUELING    25 /**< Pilot is trying to refueling. */
+#define PILOT_REFUELBOARDING 26 /**< Pilot is actively refueling. */
+#define PILOT_MANUAL_CONTROL 27 /**< Pilot is under manual control of a mission or event. */
+#define PILOT_LANDING      28 /**< Pilot is landing. */
+#define PILOT_TAKEOFF      29 /**< Pilot is taking off. */
+#define PILOT_DISABLED     30 /**< Pilot is disabled. */
+#define PILOT_DEAD         31 /**< Pilot is in it's dying throes */
+#define PILOT_DEATH_SOUND  32 /**< Pilot just did death explosion. */
+#define PILOT_EXPLODED     33 /**< Pilot did final death explosion. */
+#define PILOT_DELETE       34 /**< Pilot will get deleted asap. */
+#define PILOT_VISPLAYER    35 /**< Pilot is always visible to the player (only player). */
+#define PILOT_VISIBLE      36 /**< Pilot is always visible to other pilots. */
 #define PILOT_HILIGHT      37 /**< Pilot is hilighted when visible (this does not increase visibility). */
-#define PILOT_INVISIBLE    36 /**< Pilot is invisible to other pilots. */
-#define PILOT_FLAGS_MAX    PILOT_INVISIBLE+1 /* Maximum number of flags. */
+#define PILOT_INVISIBLE    38 /**< Pilot is invisible to other pilots. */
+#define PILOT_BOARDABLE    39 /**< Pilot can be boarded even while active. */
+#define PILOT_NOJUMP       40 /**< Pilot cannot engage hyperspace engines. */
+#define PILOT_NOLAND       41 /**< Pilot cannot land on stations or planets. */
+#define PILOT_FLAGS_MAX    PILOT_NOLAND+1 /* Maximum number of flags. */
 typedef char PilotFlags[ PILOT_FLAGS_MAX ];
 
 /* makes life easier */
@@ -172,6 +177,7 @@ typedef struct PilotOutfitSlot_ {
  */
 typedef struct PilotWeaponSetOutfit_ {
    int level; /**< Level of trigger. */
+   double range2; /**< Range squared of this specific outfit. */
    PilotOutfitSlot *slot; /**< Slot assosciated with it. */
 } PilotWeaponSetOutfit;
 
@@ -186,6 +192,7 @@ typedef struct PilotWeaponSet_ {
    char *name; /**< Helpful for the player. */
    int fire; /**< Whether to fire the weapons or just enable them. */
    int active; /**< Whether or not it's currently firing. */
+   int inrange; /**< Whether or not to fire only if the target is inrange. */
    double range[PILOT_WEAPSET_MAX_LEVELS]; /**< Range of the levels in the outfit slot. */
    double speed[PILOT_WEAPSET_MAX_LEVELS]; /**< Speed of the levels in the outfit slot. */
    PilotWeaponSetOutfit *slots; /**< Slots involved with the weapon set. */
@@ -331,7 +338,7 @@ typedef struct Pilot_ {
    int autoweap; /**< Automatically update weapon sets. */
 
    /* Cargo */
-   uint64_t credits; /**< monies the pilot has */
+   credits_t credits; /**< monies the pilot has */
    PilotCommodity* commodities; /**< commodity and quantity */
    int ncommodities; /**< number of commodities. */
    int cargo_free; /**< Free commodity space. */
@@ -395,7 +402,8 @@ unsigned int pilot_getNearestEnemy_size( const Pilot* p, int target_mass_LB, int
 unsigned int pilot_getNearestEnemy_heuristic(const Pilot* p, double mass_factor, double health_factor, double damage_factor, double range_factor);
 unsigned int pilot_getNearestHostile (void); /* only for the player */
 unsigned int pilot_getNearestPilot( const Pilot* p );
-unsigned int pilot_getNearestPos( const Pilot *p, double x, double y, int disabled );
+double pilot_getNearestPos( const Pilot *p, unsigned int *tp, double x, double y, int disabled );
+double pilot_getNearestAng( const Pilot *p, unsigned int *tp, double ang, int disabled );
 int pilot_getJumps( const Pilot* p );
 
 /*non-lua wrappers*/
@@ -409,14 +417,14 @@ double pilot_relhp(const Pilot* cur_pilot, const Pilot* p);
 double pilot_hit( Pilot* p, const Solid* w, const unsigned int shooter,
       const DamageType dtype, const double damage, const double penetration );
 void pilot_explode( double x, double y, double radius,
-      DamageType dtype, double damage, 
+      DamageType dtype, double damage,
       double penetration, const Pilot *parent );
 double pilot_face( Pilot* p, const double dir );
 
 
 /* Misc. */
-int pilot_hasCredits( Pilot *p, int amount );
-unsigned long pilot_modCredits( Pilot *p, int amount );
+int pilot_hasCredits( Pilot *p, credits_t amount );
+credits_t pilot_modCredits( Pilot *p, credits_t amount );
 int pilot_refuelStart( Pilot *p );
 void pilot_hyperspaceAbort( Pilot* p );
 void pilot_clearTimers( Pilot *pilot );

@@ -302,7 +302,7 @@ static void solid_update_euler (Solid *obj, const double dt)
 
 
 /**
- * @brief Runge-Kutta method of updating a solid based on it's acceleration.
+ * @brief Runge-Kutta method of updating a solid based on its acceleration.
  *
  * Runge-Kutta 4 method
  *
@@ -469,7 +469,7 @@ void solid_init( Solid* dest, const double mass, const double dir,
       case SOLID_UPDATE_EULER:
          dest->update = solid_update_euler;
          break;
-   
+
       default:
          WARN("Solid initialization did not specify correct update function!");
          dest->update = solid_update_rk4;

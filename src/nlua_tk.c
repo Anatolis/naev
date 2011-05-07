@@ -5,7 +5,7 @@
 /**
  * @file nlua_tk.c
  *
- * @brief NAEV toolkit Lua module.
+ * @brief Naev toolkit Lua module.
  */
 
 #include "nlua_tk.h"
@@ -14,7 +14,7 @@
 
 #include <stdlib.h>
 
-#include "lauxlib.h"
+#include <lauxlib.h>
 
 #include "nlua.h"
 #include "nluadef.h"
@@ -172,6 +172,8 @@ static int tk_choice( lua_State *L )
    for (i=0; i<opts; i++)
       dialogue_addChoice( title, str, luaL_checkstring(L,i+3) );
    result = dialogue_runChoice();
+   if (result == NULL) /* Something went wrong, return nil. */
+      return 0;
 
    /* Handle results. */
    ret = -1;

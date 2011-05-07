@@ -9,29 +9,39 @@
 
 #include "pilot.h"
 
-
 /* flag defines */
-#define PLAYER_TURN_LEFT   (1<<0)   /**< player is turning left */
-#define PLAYER_TURN_RIGHT  (1<<1)   /**< player is turning right */
-#define PLAYER_REVERSE     (1<<2)   /**< player is facing opposite of vel */
-#define PLAYER_AFTERBURNER (1<<3)   /**< player is afterburning */
-#define PLAYER_DESTROYED   (1<<9)   /**< player is destroyed */
-#define PLAYER_FACE        (1<<10)  /**< player is facing target */
-#define PLAYER_PRIMARY     (1<<11)  /**< player is shooting primary weapon */
-#define PLAYER_PRIMARY_L   (1<<12)  /**< player shot primary weapon last frame. */
-#define PLAYER_SECONDARY   (1<<13)  /**< player is shooting secondary weapon */
-#define PLAYER_SECONDARY_L (1<<14)  /**< player shot secondary last frame. */
-#define PLAYER_LANDACK     (1<<15)  /**< player has permission to land */
-#define PLAYER_CREATING    (1<<16)  /**< player is being created */
-#define PLAYER_AUTONAV     (1<<17)  /**< player has autonavigation on. */
-#define PLAYER_NOLAND      (1<<18)  /**< player is not allowed to land (cleared on enter). */
-#define PLAYER_DOUBLESPEED (1<<19)  /**< player is running at double speed. */
-#define PLAYER_CINEMATICS_GUI (1<<20) /**< Disable rendering the GUI when in cinematics mode. */
-#define PLAYER_CINEMATICS_2X (1<<21) /**< Disables usage of the 2x button when in cinematics mode. */
+#define PLAYER_TURN_LEFT   0   /**< player is turning left */
+#define PLAYER_TURN_RIGHT  1   /**< player is turning right */
+#define PLAYER_REVERSE     2   /**< player is facing opposite of vel */
+#define PLAYER_AFTERBURNER 3   /**< player is afterburning */
+#define PLAYER_DESTROYED   9   /**< player is destroyed */
+#define PLAYER_FACE        10  /**< player is facing target */
+#define PLAYER_PRIMARY     11  /**< player is shooting primary weapon */
+#define PLAYER_PRIMARY_L   12  /**< player shot primary weapon last frame. */
+#define PLAYER_SECONDARY   13  /**< player is shooting secondary weapon */
+#define PLAYER_SECONDARY_L 14  /**< player shot secondary last frame. */
+#define PLAYER_LANDACK     15  /**< player has permission to land */
+#define PLAYER_CREATING    16  /**< player is being created */
+#define PLAYER_AUTONAV     17  /**< player has autonavigation on. */
+#define PLAYER_NOLAND      18  /**< player is not allowed to land (cleared on enter). */
+#define PLAYER_DOUBLESPEED 19  /**< player is running at double speed. */
+#define PLAYER_CINEMATICS_GUI 20 /**< Disable rendering the GUI when in cinematics mode. */
+#define PLAYER_CINEMATICS_2X 21 /**< Disables usage of the 2x button when in cinematics mode. */
+#define PLAYER_HOOK_LAND   25
+#define PLAYER_HOOK_JUMPIN 26
+#define PLAYER_HOOK_HYPER  27
+#define PLAYER_TUTORIAL    30  /**< Player is doing the tutorial. */
+#define PLAYER_MFLY        31  /**< Player has enabled mouse flying. */
+#define PLAYER_FLAGS_MAX   PLAYER_MFLY + 1 /* Maximum number of flags. */
+typedef char PlayerFlags[ PLAYER_FLAGS_MAX ];
+
 /* flag functions */
-#define player_isFlag(f)   (player.flags & (f)) /**< Checks for a player flag. */
-#define player_setFlag(f)  (player.flags |= (f)) /**< Sets a player flag. */
-#define player_rmFlag(f)   (player.flags &= ~(f)) /**< Removes a player flag. */
+#define player_isFlag(f)   (player.flags[f])
+#define player_setFlag(f)  (player.flags[f] = 1)
+#define player_rmFlag(f)   (player.flags[f] = 0)
+
+/* comfort flags. */
+#define player_isTut()     player_isFlag(PLAYER_TUTORIAL)
 
 
 #include "player_autonav.h"
@@ -41,18 +51,22 @@
  * The player struct.
  */
 typedef struct Player_s {
-   /* Player intrinsecs. */
+   /* Player intrinsics. */
    Pilot *p; /**< Player's pilot. */
    char *name; /**< Player's name. */
    char *gui; /**< Player's GUI. */
    int guiOverride; /**< GUI is overriden (not default). */
 
    /* Player data. */
-   unsigned int flags; /**< Player's flags. */
+   PlayerFlags flags; /**< Player's flags. */
    int enemies; /**< Amount of enemies the player has. */
    double crating; /**< Combat rating. */
    int autonav; /**< Current autonav state. */
    Vector2d autonav_pos; /**< Target autonav position. */
+   double tc_max; /**< Maximum time compression value (bounded by ship speed or conf setting). */
+   double autonav_timer; /**< Timer that begins counting down when autonav aborts due to combat. */
+   double mousex; /**< Mouse X position (for mouse flying). */
+   double mousey; /**< Mouse Y position (for mouse flying). */
 } Player_t;
 
 
@@ -79,9 +93,17 @@ extern int snd_hypJump; /**< Hyperspace jump sound. */
 /*
  * creation/cleanup
  */
+int player_init (void);
 void player_new (void);
-int player_newShip( Ship* ship, const char *def_name, int trade );
+void player_newTutorial (void);
+Pilot* player_newShip( Ship* ship, const char *def_name,
+      int trade, int noname );
 void player_cleanup (void);
+
+/*
+ * Hook voodoo.
+ */
+void player_runHooks (void);
 
 
 /*
@@ -104,12 +126,13 @@ void player_nolandMsg( const char *str );
 void player_clear (void);
 void player_warp( const double x, const double y );
 const char* player_rating (void);
-int player_hasCredits( int amount );
-unsigned long player_modCredits( int amount );
+int player_hasCredits( credits_t amount );
+credits_t player_modCredits( credits_t amount );
 void player_hailStart (void);
 /* Sounds. */
-void player_playSound( int sound, int once );
-void player_stopSound (void);
+void player_soundPlay( int sound, int once );
+void player_soundPlayGUI( int sound, int once );
+void player_soundStop (void);
 void player_soundPause (void);
 void player_soundResume (void);
 
@@ -202,7 +225,7 @@ void player_targetEscort( int prev );
  */
 void player_weapSetPress( int id, int type );
 void player_land (void);
-void player_jump (void);
+int player_jump (void);
 void player_screenshot (void);
 void player_afterburn (void);
 void player_afterburnOver (int type);
@@ -211,6 +234,7 @@ void player_accelOver (void);
 void player_hail (void);
 void player_hailPlanet (void);
 void player_autohail (void);
+void player_toggleMouseFly(void);
 
 
 #endif /* PLAYER_H */

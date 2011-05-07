@@ -43,6 +43,8 @@
 #include "map_overlay.h"
 #include "menu.h"
 #include "nstring.h"
+#include "nmath.h"
+#include "map.h"
 
 
 #define XML_PLANET_ID         "Assets" /**< Planet xml document tag. */
@@ -147,7 +149,7 @@ int space_sysLoad( xmlNodePtr parent );
 /*
  * External prototypes.
  */
-extern unsigned int economy_getPrice( const Commodity *com,
+extern credits_t economy_getPrice( const Commodity *com,
       const StarSystem *sys, const Planet *p ); /**< from economy.c */
 
 
@@ -246,7 +248,7 @@ char planet_getClass( const Planet *p )
  *    @param p Planet to get price at.
  *    @param c Commodity to get price of.
  */
-unsigned int planet_commodityPrice( const Planet *p, const Commodity *c )
+credits_t planet_commodityPrice( const Planet *p, const Commodity *c )
 {
    char *sysname;
    StarSystem *sys;
@@ -268,6 +270,10 @@ int space_canHyperspace( Pilot* p )
 {
    double d, r;
    JumpPoint *jp;
+
+   /* Must not have the nojump flag. */
+   if (pilot_isFlag(p, PILOT_NOJUMP))
+      return 0;
 
    /* Must have fuel. */
    if (p->fuel < HYPERSPACE_FUEL)
@@ -297,6 +303,8 @@ int space_canHyperspace( Pilot* p )
  */
 int space_hyperspace( Pilot* p )
 {
+   if (pilot_isFlag(p, PILOT_NOJUMP))
+      return -2;
    if (p->fuel < HYPERSPACE_FUEL)
       return -3;
    if (!space_canHyperspace(p))
@@ -304,7 +312,6 @@ int space_hyperspace( Pilot* p )
 
    /* pilot is now going to get automatically ready for hyperspace */
    pilot_setFlag(p, PILOT_HYP_PREP);
-
    return 0;
 }
 
@@ -392,7 +399,8 @@ char** space_getFactionPlanet( int *nplanets, int *factions, int nfactions )
          planet = systems_stack[i].planets[j];
          for (k=0; k<nfactions; k++)
             if (planet->real == ASSET_REAL &&
-                planet->faction == factions[k]) {
+                planet->faction == factions[k] &&
+                space_sysReallyReachable(planet_getSystem(planet->name))) {
                ntmp++;
                if (ntmp > mtmp) { /* need more space */
                   mtmp *= 2;
@@ -427,7 +435,7 @@ char* space_getRndPlanet (void)
 
    for (i=0; i<systems_nstack; i++)
       for (j=0; j<systems_stack[i].nplanets; j++) {
-         if(systems_stack[i].planets[j]->real == ASSET_REAL) {
+         if (systems_stack[i].planets[j]->real == ASSET_REAL) {
             ntmp++;
             if (ntmp > mtmp) { /* need more space */
                mtmp *= 2;
@@ -437,7 +445,13 @@ char* space_getRndPlanet (void)
          }
       }
 
-   res = tmp[RNG(0,ntmp-1)];
+   tmp = arrayShuffle(tmp, ntmp);
+   for (i=0; i < ntmp; i++) {
+      if (space_sysReallyReachable(planet_getSystem( tmp[i] ))) {
+         res = tmp[i];
+         break;
+      }
+   }
    free(tmp);
 
    return res;
@@ -453,7 +467,7 @@ char* space_getRndPlanet (void)
  *    @param x X position to get closest from.
  *    @param y Y position to get closest from.
  */
-void system_getClosest( const StarSystem *sys, int *pnt, int *jp, double x, double y )
+double system_getClosest( const StarSystem *sys, int *pnt, int *jp, double x, double y )
 {
    int i;
    double d, td;
@@ -487,6 +501,54 @@ void system_getClosest( const StarSystem *sys, int *pnt, int *jp, double x, doub
          d     = td;
       }
    }
+   return d;
+}
+
+
+/**
+ * @brief Gets the closest feature to a position in the system.
+ *
+ *    @param sys System to get closest feature from a position.
+ *    @param[out] pnt ID of closest planet or -1 if a jump point is closer (or none is close).
+ *    @param[out] jp ID of closest jump point or -1 if a planet is closer (or none is close).
+ *    @param x X position to get closest from.
+ *    @param y Y position to get closest from.
+ */
+double system_getClosestAng( const StarSystem *sys, int *pnt, int *jp, double x, double y, double ang )
+{
+   int i;
+   double a, ta;
+   Planet *p;
+   JumpPoint *j;
+
+   /* Default output. */
+   *pnt = -1;
+   *jp  = -1;
+   a    = 10e10;
+
+   /* Planets. */
+   for (i=0; i<sys->nplanets; i++) {
+      p  = sys->planets[i];
+      if (p->real != ASSET_REAL)
+         continue;
+      ta = atan2( y - p->pos.y, x - p->pos.x);
+      if ( ABS(angle_diff(ang, ta)) < ABS(angle_diff(ang, a))) {
+         *pnt  = i;
+         a     = ta;
+      }
+   }
+
+   /* Jump points. */
+   for (i=0; i<sys->njumps; i++) {
+      j  = &sys->jumps[i];
+      ta = atan2( y - j->pos.y, x - j->pos.x);
+      if ( ABS(angle_diff(ang, ta)) < ABS(angle_diff(ang, a))) {
+         *pnt  = -1; /* We must clear planet target as jump point is closer. */
+         *jp   = i;
+         a     = ta;
+      }
+   }
+   return a;
 }
 
 
@@ -506,6 +568,22 @@ int space_sysReachable( StarSystem *sys )
       if (sys_isKnown( sys->jumps[i].target ))
          return 1;
 
+   return 0;
+}
+
+
+/**
+ * @brief Sees if a system can be reached via jumping.
+ *
+ *    @return 1 if target system is reachable, 0 if it isn't.
+ */
+int space_sysReallyReachable ( char* sysname )
+{
+   int njumps;
+
+   if (strcmp(sysname,cur_system->name)==0 || map_getJumpPath( &njumps,
+         cur_system->name, sysname, 1, NULL ) != NULL)
+      return 1;
    return 0;
 }
 
@@ -589,7 +667,7 @@ char **system_searchFuzzyCase( const char* sysname, int *n )
 
 
 /**
- * @brief Get the system from it's name.
+ * @brief Get the system from its name.
  *
  *    @param sysname Name to match.
  *    @return System matching sysname.
@@ -608,7 +686,7 @@ StarSystem* system_get( const char* sysname )
 
 
 /**
- * @brief Get the system by it's index.
+ * @brief Get the system by its index.
  *
  *    @param id Index to match.
  *    @return System matching index.
@@ -651,7 +729,7 @@ char* planet_getSystem( const char* planetname )
 
 
 /**
- * @brief Gets a planet based on it's name.
+ * @brief Gets a planet based on its name.
  *
  *    @param planetname Name to match.
  *    @return Planet matching planetname.
@@ -799,7 +877,7 @@ char **planet_searchFuzzyCase( const char* planetname, int *n )
  */
 static void system_scheduler( double dt, int init )
 {
-   int i, n;
+   int i, n, errf;
    lua_State *L;
    SystemPresence *p;
    LuaPilot *lp;
@@ -816,10 +894,18 @@ static void system_scheduler( double dt, int init )
 
       /* Run the appropriate function. */
       if (init) {
+#if DEBUGGING
+         lua_pushcfunction(L, nlua_errTrace);
+#endif /* DEBUGGING */
          lua_getglobal( L, "create" ); /* f */
          if (lua_isnil(L,-1)) {
             WARN("Lua Spawn script for faction '%s' missing obligatory entry point 'create'.",
                   faction_name( p->faction ) );
+#if DEBUGGING
+            lua_pop(L,2);
+#else /* DEBUGGING */
+            lua_pop(L,1);
+#endif /* DEBUGGING */
             continue;
          }
          n = 0;
@@ -830,11 +916,18 @@ static void system_scheduler( double dt, int init )
          if (p->timer >= 0.)
             continue;
 
+#if DEBUGGING
+         lua_pushcfunction(L, nlua_errTrace);
+#endif /* DEBUGGING */
          lua_getglobal( L, "spawn" ); /* f */
          if (lua_isnil(L,-1)) {
             WARN("Lua Spawn script for faction '%s' missing obligatory entry point 'spawn'.",
                   faction_name( p->faction ) );
+#if DEBUGGING
+            lua_pop(L,2);
+#else /* DEBUGGING */
             lua_pop(L,1);
+#endif /* DEBUGGING */
             continue;
          }
          lua_pushnumber( L, p->curUsed ); /* f, presence */
@@ -842,11 +935,21 @@ static void system_scheduler( double dt, int init )
       }
       lua_pushnumber( L, p->value ); /* f, [arg,], max */
 
+#if DEBUGGING
+      errf = -2-(n+1);
+#else /* DEBUGGING */
+      errf = 0;
+#endif /* DEBUGGING */
+
       /* Actually run the function. */
-      if (lua_pcall(L, n+1, 2, 0)) { /* error has occured */
+      if (lua_pcall(L, n+1, 2, errf)) { /* error has occured */
          WARN("Lua Spawn script for faction '%s' : %s",
                faction_name( p->faction ), lua_tostring(L,-1));
+#if DEBUGGING
+         lua_pop(L,2);
+#else /* DEBUGGING */
          lua_pop(L,1);
+#endif /* DEBUGGING */
          continue;
       }
 
@@ -854,13 +957,17 @@ static void system_scheduler( double dt, int init )
       if (!lua_isnumber(L,-2)) {
          WARN("Lua spawn script for faction '%s' failed to return timer value.",
                faction_name( p->faction ) );
+#if DEBUGGING
+         lua_pop(L,3);
+#else /* DEBUGGING */
          lua_pop(L,2);
+#endif /* DEBUGGING */
          continue;
       }
       p->timer    += lua_tonumber(L,-2);
       /* Handle table if it exists. */
       if (lua_istable(L,-1)) {
-         lua_pushnil(L); /* t, k */
+         lua_pushnil(L); /* tk, k */
          while (lua_next(L,-2) != 0) { /* tk, k, v */
             /* Must be table. */
             if (!lua_istable(L,-1)) {
@@ -896,7 +1003,11 @@ static void system_scheduler( double dt, int init )
             lua_pop(L,2); /* tk, k */
          }
       }
-      lua_pop(L,2); /* Clear arguments. */
+#if DEBUGGING
+      lua_pop(L,3);
+#else /* DEBUGGING */
+      lua_pop(L,2);
+#endif /* DEBUGGING */
    }
 }
 
@@ -909,6 +1020,7 @@ static void system_scheduler( double dt, int init )
 void space_update( const double dt )
 {
    int i;
+   Pilot *p;
 
    /* Needs a current system. */
    if (cur_system == NULL)
@@ -924,7 +1036,8 @@ void space_update( const double dt )
    if (cur_system->nebu_volatility > 0.) {
       /* Damage pilots in volatile systems. */
       for (i=0; i<pilot_nstack; i++) {
-         pilot_hit( pilot_stack[i], NULL, 0, DAMAGE_TYPE_RADIATION,
+         p = pilot_stack[i];
+         pilot_hit( p, NULL, 0, DAMAGE_TYPE_NEBULA,
                   pow2(cur_system->nebu_volatility) / 500. * dt, 1. ); /* 100% penetration. */
       }
    }
@@ -979,7 +1092,7 @@ void space_update( const double dt )
  *
  *    @param sysname Name of the system to initialize.
  */
-void space_init ( const char* sysname )
+void space_init( const char* sysname )
 {
    char* nt;
    int i, n, s;
@@ -1076,7 +1189,7 @@ void space_init ( const char* sysname )
    ntime_allowUpdate( 0 );
    n = SYSTEM_SIMULATE_TIME / fps_min;
    for (i=0; i<n; i++)
-      update_routine( fps_min );
+      update_routine( fps_min, 1 );
    ntime_allowUpdate( 1 );
    sound_disabled = s;
    player_messageToggle( 1 );
@@ -1141,6 +1254,10 @@ static int planets_load ( void )
 
    buf = ndata_read( PLANET_DATA, &bufsize );
    doc = xmlParseMemory( buf, bufsize );
+   if (doc == NULL) {
+      ERR(PLANET_DATA" file is invalid xml!");
+      return -1;
+   }
 
    node = doc->xmlChildrenNode;
    if (strcmp((char*)node->name,XML_PLANET_ID)) {
@@ -1712,20 +1829,17 @@ void systems_reconstructPlanets (void)
  */
 static StarSystem* system_parse( StarSystem *sys, const xmlNodePtr parent )
 {
-   Planet* planet;
    char *ptrc;
    xmlNodePtr cur, node;
    uint32_t flags;
-   int size;
 
    /* Clear memory for sane defaults. */
    flags          = 0;
-   planet         = NULL;
-   size           = 0;
    sys->presence  = NULL;
    sys->npresence = 0;
    sys->systemFleets  = NULL;
    sys->nsystemFleets = 0;
+   sys->ownerpresence = 0.;
 
    sys->name = xml_nodeProp(parent,"name"); /* already mallocs */
 
@@ -1812,6 +1926,7 @@ static StarSystem* system_parse( StarSystem *sys, const xmlNodePtr parent )
  * @brief Sets the system faction based on the planets it has.
  *
  *    @param sys System to set the faction of.
+ *    @return Faction that controls the system.
  */
 static void system_setFaction( StarSystem *sys )
 {
@@ -2009,6 +2124,7 @@ int space_load (void)
       /* Save jump indexes. */
       for (j=0; j<sys->njumps; j++)
          sys->jumps[j].targetid = sys->jumps[j].target->id;
+      sys->ownerpresence = system_getPresence( sys, sys->faction );
    }
 
    return 0;
@@ -2707,7 +2823,7 @@ int system_hasPlanet( StarSystem *sys )
  */
 void system_rmCurrentPresence( StarSystem *sys, int faction, double amount )
 {
-   int id;
+   int id, errf;
    lua_State *L;
    SystemPresence *presence;
 
@@ -2722,21 +2838,36 @@ void system_rmCurrentPresence( StarSystem *sys, int faction, double amount )
    /* Run lower hook. */
    L = faction_getState( faction );
 
+#if DEBUGGING
+   lua_pushcfunction(L, nlua_errTrace);
+   errf = -5;
+#else /* DEBUGGING */
+   errf = 0;
+#endif /* DEBUGGING */
+
    /* Run decrease function if applicable. */
    lua_getglobal( L, "decrease" ); /* f */
    if (lua_isnil(L,-1)) {
+#if DEBUGGING
+      lua_pop(L,2);
+#else /* DEBUGGING */
       lua_pop(L,1);
+#endif /* DEBUGGING */
       return;
    }
    lua_pushnumber( L, presence->curUsed ); /* f, cur */
-   lua_pushnumber( L, presence->value ); /* f, cur, max */
-   lua_pushnumber( L, presence->timer ); /* f, cur, max, timer */
+   lua_pushnumber( L, presence->value );   /* f, cur, max */
+   lua_pushnumber( L, presence->timer );   /* f, cur, max, timer */
 
    /* Actually run the function. */
-   if (lua_pcall(L, 3, 1, 0)) { /* error has occured */
+   if (lua_pcall(L, 3, 1, errf)) { /* error has occured */
       WARN("Lua decrease script for faction '%s' : %s",
             faction_name( faction ), lua_tostring(L,-1));
+#if DEBUGGING
+      lua_pop(L,2);
+#else /* DEBUGGING */
       lua_pop(L,1);
+#endif /* DEBUGGING */
       return;
    }
 
@@ -2744,11 +2875,19 @@ void system_rmCurrentPresence( StarSystem *sys, int faction, double amount )
    if (!lua_isnumber(L,-1)) {
       WARN("Lua spawn script for faction '%s' failed to return timer value.",
             faction_name( presence->faction ) );
+#if DEBUGGING
+      lua_pop(L,2);
+#else /* DEBUGGING */
       lua_pop(L,1);
+#endif /* DEBUGGING */
       return;
    }
    presence->timer = lua_tonumber(L,-1);
+#if DEBUGGING
+   lua_pop(L,2);
+#else /* DEBUGGING */
    lua_pop(L,1);
+#endif /* DEBUGGING */
 }
 
 

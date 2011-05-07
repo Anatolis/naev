@@ -38,7 +38,7 @@ else -- default english
     Rebina takes a moment to sip from her drink. "I think you can see where this is going. You are to rendezvous with Jorek, take him aboard your ship, lose whoever's tailing him, then bring him to the %s system. There you will dock with one of our ships, the %s, which will take Jorek to his final destination. You will receive your reward from her captain once Jorek is aboard."
     "It's a simple objective, but accomplishing it might require considerable skill." She leans back and smiles. "Still, I have utmost confidence that you can do it. I seldom misjudge those I choose to trust."]]
     text[5] = [[    "You know what to do," Rebina tells you. "You will find Jorek in the spaceport bar on %s. When you see him, tell him you've come to 'see to his special needs'. Oh, and please be discrete. Don't talk about things you don't need to; the walls have ears in that place. In particular, don't mention any names."
-    "You will be on a time schedule. You must meet Jorek within %d STU, or he will assume you are not coming and go back into hiding. You must also be at the meeting point %d STU from now. If you fail to meet with Jorek within the time limit or if you are prevented from taking him offworld for any other reason, make your way to the %s and report what happened. We'll take it from there. If you fail to show up at the designated time, we will assume you have failed, and the %s will leave."
+    "You will be on a time schedule. You must meet Jorek within %d STP, or he will assume you are not coming and go back into hiding. You must also be at the meeting point %d STP from now. If you fail to meet with Jorek within the time limit or if you are prevented from taking him offworld for any other reason, make your way to the %s and report what happened. We'll take it from there. If you fail to show up at the designated time, we will assume you have failed, and the %s will leave."
     Rebina empies her glass and places it on the bar before rising to her feet. "That will be all. Good luck, and keep your wits about you."
     Then Rebina takes her leave from you and gracefully departs the spaceport bar. You order yourself another drink. You've got the feeling you're going to need it.]]
     refusal = [[    "I see. What a shame." Rebina's demeanor conveys that she's disappointed but not upset. "I can understand your decision. One should not bite off more than one can chew, after all. It seems I will have to try to find another candidate." She tilts her head slightly. Then, "Although if you change your mind before I do, you're welcome to seek me out again. I'll be around."
@@ -64,12 +64,6 @@ else -- default english
     misn_desc = {}
     bar_desc = "You spot a dark-haired woman sitting at the bar. Her elegant features and dress make her stand out, yet her presence here seems almost natural, as if she's in the right place at the right time, waiting for the right person. You wonder why she's all by herself."
     misn_desc[1] = "Fly to planet %s in the %s system and talk to Jorek. Once Jorek has boarded your ship, proceed to system %s and board the %s."
-    
-    credits = 100000 -- 100K
-    timelimit1 = 40
-    timelimit2 = 90
-    
-    -- Aborted mission
     
     -- NPC stuff
     jorek_npc = {}
@@ -125,6 +119,10 @@ function create ()
     if not misn.claim( {sys, sys2} ) then
     end
 
+    credits = 100000 -- 100K
+    timelimit1 = 20 -- In STP
+    timelimit2 = 50 -- In STP
+    
     misn.setNPC( "A dark-haired woman", "rebina" )
     misn.setDesc( bar_desc ) 
 end
@@ -154,14 +152,16 @@ function accept()
                                      })
         misn_marker = misn.markerAdd( sys, "low" )
         shadowrun = 2
+
+        dateres = 500
+        datehook = hook.date(time.create(0, 0, dateres), "date")
+        hook.land("land")
+        hook.enter("enter")
     else
         tk.msg(title[1], refusal)
         var.push("shadowrun", 1) -- For future appearances of this mission
         misn.finish(false)
     end
-
-    hook.land("land")
-    hook.enter("enter")
 end
 
 function land()
@@ -199,22 +199,43 @@ function soldier2()
    tk.msg( sol2_title[1], sol2_text[1] )
 end
 
-function enter()
+function date()
     -- Deadline stuff
-    if deadline1 - time.get() > 0 then
+    if deadline1 > time.get() then
+        dateresolution(deadline1)
         misn.osdCreate(osd_title[1], { string.format(osd_msg[1], planetname, sysname),
                                        string.format(osd_msg[2], time.str(deadline1 - time.get())),
                                        string.format(osd_msg[3], sysname2, shipname),
                                        string.format(osd_msg[4], time.str(deadline2 - time.get()))
                                      })
-    elseif deadline2 - time.get() > 0 then
+    elseif deadline2 > time.get() then
+        dateresolution(deadline2)
         misn.osdCreate(osd_title[1], { string.format(osd_msg[3], sysname2, shipname),
                                        string.format(osd_msg[4], time.str(deadline2 - time.get()))
                                      })
         misn.markerMove( misn_marker, sys2 )
+    else
         abort()
     end
+end
 
+function dateresolution(time)
+    if time - time.get() < time.create(0, 0, 5000) and dateres > 30 then 
+        dateres = 30
+        hook.rm(datehook)
+        datehook = hook.date(time.create(0, 0, dateres), "date")
+    elseif time - time.get() < time.create(0, 1, 0) and dateres > 100 then 
+        dateres = 100
+        hook.rm(datehook)
+        datehook = hook.date(time.create(0, 0, dateres), "date")
+    elseif time - time.get() >= time.create(0, 1, 0) and dateres < 500 then 
+        dateres = 500
+        hook.rm(datehook)
+        datehook = hook.date(time.create(0, 0, dateres), "date")
+    end
+end
+
+function enter()
     -- Random(?) pirate attacks when get closer to your system, and heavier ones when you fly away from it after meeting SHITMAN
     if system.cur():jumpDist(sys) < 3 and system.cur():jumpDist(sys) > 0 and shadowrun == 2 then
         pilot.clear()
@@ -249,7 +270,8 @@ function enter()
         mypos = vec2.new(-1500, 600)
         seiryuu = pilot.add( "Seiryuu", nil, mypos )[1]
 
-        seiryuu:disable()
+        seiryuu:setActiveBoard(true)
+        seiryuu:control()
         seiryuu:setInvincible(true)
         seiryuu:setHilight(true)
         
@@ -274,6 +296,8 @@ function board()
     seiryuu:setHealth(100, 100)
     seiryuu:changeAI("flee")
     seiryuu:setHilight(false)
+    seiryuu:setActiveBoard(false)
+    seiryuu:control(false)
 
     if var.peek("shadowrun") then
        var.pop("shadowrun") -- in case it was used

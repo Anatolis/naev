@@ -9,9 +9,11 @@
 
 
 /* yay lua */
-#include "lua.h"
+#include <lua.h>
 
 #include "physics.h"
+
+#define AI_MEM          "__mem" /**< Internal pilot memory. */
 
 
 #define MIN_DIR_ERR     5.0*M_PI/180. /**< Minimum direction error. */
@@ -42,6 +44,7 @@ typedef enum TaskData_ {
 typedef struct Task_ {
    struct Task_* next; /**< Next task */
    char *name; /**< Task name. */
+   int done; /**< Task is done and ready for deletion. */
 
    struct Task_* subtask; /**< Subtasks of the current task. */
 

@@ -110,7 +110,7 @@ static void inp_render( Widget* inp, double bx, double by )
 
    /* Draw cursor. */
    if (wgt_isFlag( inp, WGT_FLAG_FOCUSED )) {
-      m = MIN( inp->dat.inp.pos - inp->dat.inp.view, PATH_MAX );
+      m = MIN( inp->dat.inp.pos - inp->dat.inp.view, PATH_MAX-1 );
       strncpy( buf, &inp->dat.inp.input[ inp->dat.inp.view ], m );
       buf[ m ] = '\0';
       w = gl_printWidthRaw( inp->dat.inp.font, buf );
@@ -232,7 +232,7 @@ static int inp_key( Widget* inp, SDLKey key, SDLMod mod )
    }
 
    /* Only catch some keys. */
-   if ((key != SDLK_BACKSPACE) && (key != SDLK_RETURN))
+   if ((key != SDLK_BACKSPACE) && (key != SDLK_RETURN) && (key != SDLK_KP_ENTER))
       return 0;
 
    if (inp->dat.inp.oneline) {
@@ -242,7 +242,7 @@ static int inp_key( Widget* inp, SDLKey key, SDLMod mod )
          inp->dat.inp.pos--;
          memmove( &inp->dat.inp.input[ inp->dat.inp.pos ],
                &inp->dat.inp.input[ inp->dat.inp.pos+1 ],
-               sizeof(char)*(inp->dat.inp.max - inp->dat.inp.pos - 2) );
+               sizeof(char)*(inp->dat.inp.max - inp->dat.inp.pos - 1) );
          inp->dat.inp.input[ inp->dat.inp.max - 1 ] = '\0';
 
          if (inp->dat.inp.view > 0) {
@@ -257,7 +257,7 @@ static int inp_key( Widget* inp, SDLKey key, SDLMod mod )
       /* in limits. */
       else if ((inp->dat.inp.pos < inp->dat.inp.max-1)) {
 
-         if ((key==SDLK_RETURN) && !inp->dat.inp.oneline) {
+         if ((key==SDLK_RETURN || key==SDLK_KP_ENTER) && !inp->dat.inp.oneline) {
             inp->dat.inp.input[ inp->dat.inp.pos++ ] = '\n';
             return 1;
          }

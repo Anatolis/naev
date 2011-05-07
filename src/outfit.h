@@ -10,6 +10,7 @@
 
 #include "opengl.h"
 #include "sound.h"
+#include "economy.h"
 
 
 /*
@@ -17,8 +18,8 @@
  */
 #define outfit_isProp(o,p)          ((o)->properties & p) /**< Checks an outfit for property. */
 /* property flags */
-#define OUTFIT_PROP_WEAP_SECONDARY  (1<<0) /**< Is a secondary weapon? */
-#define OUTFIT_PROP_WEAP_SPIN       (1<<1) /**< Should weapon spin around? */
+#define OUTFIT_PROP_WEAP_SECONDARY     (1<<0) /**< Is a secondary weapon? */
+#define OUTFIT_PROP_WEAP_SPIN          (1<<1) /**< Should weapon spin around? */
 #define OUTFIT_PROP_WEAP_BLOWUP_ARMOUR (1<<2) /**< Weapon blows up (armour spfx)
                                                    when timer is up. */
 #define OUTFIT_PROP_WEAP_BLOWUP_SHIELD (1<<3) /**< Weapon blows up (shield spfx)
@@ -79,6 +80,10 @@ typedef struct ShipStats_ {
    double damage_turret; /**< Damage of turrets. */
    double firerate_turret; /**< Rate of fire of turrets. */
    double energy_turret; /**< Consumption rate of turrets. */
+
+   /* Misc. */
+   double nebula_dmg_shield; /**< Shield nebula resistance. */
+   double nebula_dmg_armour; /**< Armour nebula resistance. */
 } ShipStats;
 
 
@@ -124,6 +129,7 @@ typedef enum DamageType_ {
    DAMAGE_TYPE_KINETIC, /**< Physic impact weapons. */
    DAMAGE_TYPE_ION, /**< Ion-based weapons. */
    DAMAGE_TYPE_RADIATION, /**< Radioactive weapons. */
+   DAMAGE_TYPE_NEBULA, /**< Nebula damage - essentially radiation. */
    DAMAGE_TYPE_EMP /**< Electromagnetic pulse weapons. */
 } DamageType;
 
@@ -364,7 +370,7 @@ typedef struct Outfit_ {
    double mass; /**< How much weapon capacity is needed. */
 
    /* store stuff */
-   unsigned int price; /**< Base sell price. */
+   credits_t price; /**< Base sell price. */
    char *description; /**< Store description. */
    char *desc_short; /**< Short outfit description. */
 
@@ -394,7 +400,7 @@ typedef struct Outfit_ {
  * misc
  */
 void outfit_calcDamage( double *dshield, double *darmour, double *knockback,
-      DamageType dtype, double dmg );
+      const ShipStats *stats, DamageType dtype, double dmg );
 
 
 /*
@@ -467,6 +473,7 @@ void outfit_free (void);
  */
 const char *outfit_damageTypeToStr( DamageType dmg );
 int outfit_fitsSlot( const Outfit* o, const OutfitSlot* s );
+int outfit_fitsSlotType( const Outfit* o, const OutfitSlot* s );
 
 
 #endif /* OUTFIT_H */

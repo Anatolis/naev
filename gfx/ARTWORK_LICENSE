@@ -309,7 +309,7 @@
        * store
          * gatling.png
 
- * Author: Ingo Ruhnke <grumbel@gmx.de>, License: GPLv2+ or CC-by-sa v3.0
+ * Author: Ingo Ruhnke <grumbel@gmx.de>, License: GPLv3
    * gfx
      * portraits
        * czesc.png
@@ -329,6 +329,15 @@
        * thief1.png
        * thief2.png
        * thief3.png
+       * barman.png
+       * reynir.png
+       * male1.png
+       * flintley.png
+       * miner1.png
+       * miner2.png
+       * oldwoman.png
+       * sirius_fyrra_f1.png
+       * youngbusinessman.png
    * logo
      * dvaered_small.png
      * empire_small.png
@@ -361,14 +370,21 @@
        * dogma.png
        * fidelity.png
        * preacher.png
+       * shaman.png
      * planet
        * space
          * station-agriculture.png
          * station-battlestation.png
+         * station-commerce.png
+         * station-commerce2.png
+         * station-commerce3.png
          * station-cylinder.png
          * station-fleetbase.png
+         * station-fleetbase2.png
+         * station-fleetbase3.png
          * station-powerplant.png
          * station-shipyard.png
+         * station-shipyard2.png
          * station-sphere.png
 
  * Author: BTAxis, License: PD
@@ -407,9 +423,11 @@
          * P01.png
          * P02.png
      * bkg
+       * nebula34.png
        * star
          * blue01.png
          * blue02.png
+         * blue04.png
          * green01.png
          * green02.png
          * orange01.png
@@ -423,7 +441,7 @@
 
  * Author: Scaatis, CC-by v3.0
    * gfx
-     * NAEV.png
+     * Naev.png
      * gui
        * slim
          * *
@@ -446,3 +464,42 @@
          * P04.png
          * C01.png
 
+ * Author: Josh Combs <http://freeorion.org>, License: CC-by-sa 3.0
+   * gfx
+     * bkg
+       * nebula20.png
+       * nebula21.png
+       * nebula22.png
+       * nebula23.png
+       * nebula24.png
+       * nebula25.png
+       * nebula26.png
+       * nebula27.png
+       * nebula28.png
+       * nebula29.png
+       * nebula30.png
+       * nebula31.png
+       * nebula32.png
+       * nebula33.png
+
+ * Author: NASA, License: PD
+   * gfx
+     * bkg
+       * nebula02.png
+       * nebula04.png
+       * nebula10.png
+       * nebula12.png
+       * nebula16.png
+       * nebula17.png
+       * nebula19.png
+
+ * Author: Galileus, License: CC-by-sa 3.0
+   * gfx
+     * ship
+       * shark
+         * shark.png
+         * shark_empire.png
+         * shark_pirate.png
+       * rhino
+         * rhino.png
+         * rhino_pirate.png

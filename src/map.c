@@ -246,7 +246,7 @@ void map_open (void)
    /*
     * Disable Autonav button if player lacks fuel.
     */
-   if (player.p->fuel < HYPERSPACE_FUEL)
+   if ((player.p->fuel < HYPERSPACE_FUEL) || pilot_isFlag( player.p, PILOT_NOJUMP))
       window_disableButton( wid, "btnAutonav" );
 }
 
@@ -259,7 +259,7 @@ static void map_update( unsigned int wid )
 {
    int i;
    StarSystem* sys;
-   int f, y, h, multiple_faction;
+   int f, y, h;
    double standing, nstanding;
    unsigned int services;
    int l;
@@ -330,7 +330,6 @@ static void map_update( unsigned int wid )
    standing  = 0.;
    nstanding = 0.;
    f         = -1;
-   multiple_faction = 0;
    for (i=0; i<sys->nplanets; i++) {
       if(sys->planets[i]->real == ASSET_REAL) {
          if ((f==-1) && (sys->planets[i]->faction>0)) {
@@ -341,7 +340,6 @@ static void map_update( unsigned int wid )
          else if (f != sys->planets[i]->faction && /** @todo more verbosity */
                   (sys->planets[i]->faction>0)) {
             snprintf( buf, PATH_MAX, "Multiple" );
-            multiple_faction = 1;
             break;
          }
       }
@@ -715,14 +713,14 @@ void map_renderSystems( double bx, double by, double x, double y,
 
       /* draws the disk representing the faction */
       if ((editor || sys_isKnown(sys)) && (sys->faction != -1)) {
-         sw = gl_faction_disk->sw;
-         sh = gl_faction_disk->sw;
+         sw = (60 + sqrt(sys->ownerpresence) * 3) * map_zoom;
+         sh = (60 + sqrt(sys->ownerpresence) * 3) * map_zoom;
 
          col = faction_colour(sys->faction);
          c.r = col->r;
          c.g = col->g;
          c.b = col->b;
-         c.a = 0.7;
+         c.a = CLAMP( .6, .75, 20 / sqrt(sys->ownerpresence) );
 
          gl_blitTexture(
                gl_faction_disk,
@@ -1376,7 +1374,7 @@ void map_setZoom(double zoom)
    map_zoom = zoom;
    if (gl_faction_disk != NULL)
       gl_freeTexture( gl_faction_disk );
-   gl_faction_disk = gl_genFactionDisk( 50 * zoom );
+   gl_faction_disk = gl_genFactionDisk( 150 * zoom );
 }
 
 /**
@@ -1540,7 +1538,7 @@ int map_map( const char* targ_sys, int r )
       open = A_rm( open, sys );
       closed = A_add( closed, cur );
 
-      /* check it's jumps */
+      /* check its jumps */
       for (i=0; i<sys->njumps; i++) {
          jsys = cur->sys->jumps[i].target;
 
@@ -1602,7 +1600,7 @@ int map_isMapped( const char* targ_sys, int r )
       if (dep+1 > r)
          continue;
 
-      /* check it's jumps */
+      /* check its jumps */
       for (i=0; i<sys->njumps; i++) {
          jsys = sys->jumps[i].target;
 

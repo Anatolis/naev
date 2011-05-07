@@ -12,7 +12,7 @@
 
 #include "naev.h"
 
-#include "lauxlib.h"
+#include <lauxlib.h>
 
 #include "nluadef.h"
 #include "log.h"
@@ -27,6 +27,7 @@
 #include "nlua_pilot.h"
 #include "nlua_vec2.h"
 #include "nlua_diff.h"
+#include "nlua_outfit.h"
 #include "nlua_cli.h"
 
 
@@ -98,7 +99,13 @@ int nlua_loadBasic( lua_State* L )
    };
 
 
-   nlua_load(L,luaopen_base); /* open base. */
+   luaL_openlibs(L);
+#if 0
+   nlua_load(L, luaopen_base); /* open base. */
+   nlua_load(L, luaopen_math); /* open math. */
+   nlua_load(L, luaopen_table); /* open table. */
+   nlua_load(L, luaopen_string); /* open string. */
+#endif
 
    /* replace non-safe functions */
    for (i=0; strcmp(override[i],"END")!=0; i++) {
@@ -108,10 +115,6 @@ int nlua_loadBasic( lua_State* L )
 
    /* Override print to print in the console. */
    lua_register(L, "print", cli_print);
-
-   nlua_load(L,luaopen_math); /* open math. */
-   nlua_load(L,luaopen_table); /* open table. */
-   nlua_load(L, luaopen_string); /* open string. */
 
    /* add our own */
    lua_register(L, "include", nlua_packfileLoader);
@@ -182,7 +185,7 @@ static int nlua_packfileLoader( lua_State* L )
 
 
 /**
- * @brief Loads the standard NAEV Lua API.
+ * @brief Loads the standard Naev Lua API.
  *
  * Loads the modules:
  *  - naev
@@ -196,6 +199,7 @@ static int nlua_packfileLoader( lua_State* L )
  *  - diff
  *  - faction
  *  - vec2
+ *  - outfit
  *
  * Only is missing:
  *  - misn
@@ -223,7 +227,38 @@ int nlua_loadStandard( lua_State *L, int readonly )
    r |= nlua_loadDiff(L,readonly);
    r |= nlua_loadFaction(L,readonly);
    r |= nlua_loadVector(L);
+   r |= nlua_loadOutfit(L,readonly);
 
    return r;
 }
+
+
+/**
+ * @brief Gets a trace from Lua.
+ */
+int nlua_errTrace( lua_State *L )
+{
+   /* Handle special done case. */
+   const char *str = luaL_checkstring(L,1);
+   if (strcmp(str,NLUA_DONE)==0)
+      return 1;
+
+   /* Otherwise execute "debug.traceback( str, int )". */
+   lua_getglobal(L, "debug");
+   if (!lua_istable(L, -1)) {
+      lua_pop(L, 1);
+      return 1;
+   }
+   lua_getfield(L, -1, "traceback");
+   if (!lua_isfunction(L, -1)) {
+      lua_pop(L, 2);
+      return 1;
+   }
+   lua_pushvalue(L, 1);
+   lua_pushinteger(L, 2);
+   lua_call(L, 2, 1);
+   return 1;
+}
+
+
 

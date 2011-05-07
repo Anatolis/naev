@@ -134,7 +134,8 @@ int tech_load (void)
    tech_groups = array_create( tech_group_t );
 
    /* First pass create the groups - needed to reference them later. */
-   ret = 0;
+   ret   = 0;
+   tech  = NULL;
    do {
       xml_onlyNodes(node);
       /* Must match tag. */
@@ -253,7 +254,7 @@ static char* tech_getItemName( tech_item_t *item )
          return item->u.comm->name;
       case TECH_TYPE_GROUP:
          return tech_groups[ item->u.grp ].name;
-      case TECH_TYPE_GROUP_POINTER: 
+      case TECH_TYPE_GROUP_POINTER:
          return item->u.grpptr->name;
    }
 

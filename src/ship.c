@@ -270,9 +270,9 @@ ShipClass ship_classFromString( char* str )
 /**
  * @brief Gets the ship's base price (no outfits).
  */
-int ship_basePrice( Ship* s )
+credits_t ship_basePrice( Ship* s )
 {
-   int price;
+   credits_t price;
 
    /* Get ship base price. */
    price = s->price;
@@ -329,6 +329,9 @@ int ship_statsParseSingle( ShipStats *s, xmlNodePtr node )
    xmlr_floatR(node,"damage_turret",s->damage_turret);
    xmlr_floatR(node,"firerate_turret",s->firerate_turret);
    xmlr_floatR(node,"energy_turret",s->energy_turret);
+   /* Misc. */
+   xmlr_floatR(node,"nebula_dmg_shield",s->nebula_dmg_shield);
+   xmlr_floatR(node,"nebula_dmg_armour",s->nebula_dmg_armour);
    return 1;
 }
 
@@ -379,6 +382,9 @@ int ship_statsDesc( ShipStats *s, char *buf, int len, int newline, int pilot )
    DESC_ADD(s->damage_turret,"Damage (Turret)");
    DESC_ADD(s->firerate_turret,"Fire Rate (Turret)");
    DESC_ADD(s->energy_turret,"Energy Usage (Turret)");
+   /* Misc. */
+   DESC_ADD(s->nebula_dmg_shield,"Nebula Damage (Shield)");
+   DESC_ADD(s->nebula_dmg_armour,"Nebula Damage (Armour)");
 #undef DESC_ADD
 
    return i;
@@ -394,14 +400,15 @@ static int ship_genTargetGFX( Ship *temp, SDL_Surface *surface, int sx, int sy )
    int potw, poth, potw_store, poth_store;
    int x, y, sw, sh;
    SDL_Rect rtemp, dstrect;
+#if 0 /* Required for scanlines. */
    int i, j;
    uint32_t *pix;
    double r, g, b, a;
    double h, s, v;
+#endif
    char buf[PATH_MAX];
 #if ! SDL_VERSION_ATLEAST(1,3,0)
    Uint32 saved_flags;
-   Uint8 saved_alpha;
 #endif /* ! SDL_VERSION_ATLEAST(1,3,0) */
 
    /* Get sprite size. */
@@ -433,7 +440,6 @@ static int ship_genTargetGFX( Ship *temp, SDL_Surface *surface, int sx, int sy )
          surface->format->BytesPerPixel*8, RGBAMASK );
 #else /* SDL_VERSION_ATLEAST(1,3,0) */
    saved_flags = surface->flags & (SDL_SRCALPHA | SDL_RLEACCELOK);
-   saved_alpha = surface->format->alpha;
    if ((saved_flags & SDL_SRCALPHA) == SDL_SRCALPHA) {
       SDL_SetAlpha( surface, 0, SDL_ALPHA_OPAQUE );
       SDL_SetColorKey( surface, 0, surface->format->colorkey );
@@ -480,6 +486,7 @@ static int ship_genTargetGFX( Ship *temp, SDL_Surface *surface, int sx, int sy )
    snprintf( buf, sizeof(buf), "%s_gfx_store.png", temp->name );
    temp->gfx_store = gl_loadImagePad( buf, gfx_store, 0, SHIP_TARGET_W, SHIP_TARGET_H, 1, 1, 1 );
 
+#if 0 /* Disabled for now due to issues with larger sprites. */
    /* Some filtering. */
    for (j=0; j<sh; j++) {
       for (i=0; i<sw; i++) {
@@ -508,6 +515,7 @@ static int ship_genTargetGFX( Ship *temp, SDL_Surface *surface, int sx, int sy )
                   ((uint32_t) (a*AMASK) & AMASK);
       }
    }
+#endif
 
    /* Load the surface. */
    snprintf( buf, sizeof(buf), "%s_gfx_target.png", temp->name );
@@ -596,7 +604,6 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
 {
    int i;
    xmlNodePtr cur, node;
-   char str[PATH_MAX];
    int sx, sy;
    char *stmp, *buf;
    int l, m, h;
@@ -606,7 +613,6 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
    memset( temp, 0, sizeof(Ship) );
 
    /* Defaults. */
-   str[0] = '\0';
    temp->thrust = -1;
    temp->speed  = -1;
 
@@ -663,7 +669,7 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
          temp->class = ship_classFromString( xml_get(node) );
          continue;
       }
-      xmlr_int(node,"price",temp->price);
+      xmlr_long(node,"price",temp->price);
       xmlr_strd(node,"license",temp->license);
       xmlr_strd(node,"fabricator",temp->fabricator);
       xmlr_strd(node,"description",temp->description);

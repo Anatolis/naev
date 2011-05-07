@@ -18,8 +18,8 @@
 #include <string.h>
 #include <math.h>
 
-#include "lua.h"
-#include "lauxlib.h"
+#include <lua.h>
+#include <lauxlib.h>
 
 #include "nlua.h"
 #include "nluadef.h"
@@ -35,9 +35,11 @@
 #include "map.h"
 #include "hook.h"
 #include "comm.h"
+#include "board.h"
 #include "land_outfits.h"
 #include "gui.h"
 #include "gui_omsg.h"
+#include "pause.h"
 
 
 /* Player methods. */
@@ -46,6 +48,7 @@ static int playerL_shipname( lua_State *L );
 static int playerL_pay( lua_State *L );
 static int playerL_credits( lua_State *L );
 static int playerL_msg( lua_State *L );
+static int playerL_msgClear( lua_State *L );
 static int playerL_omsgAdd( lua_State *L );
 static int playerL_omsgChange( lua_State *L );
 static int playerL_omsgRm( lua_State *L );
@@ -68,11 +71,13 @@ static int playerL_unboard( lua_State *L );
 /* Land stuff. */
 static int playerL_takeoff( lua_State *L );
 static int playerL_allowLand( lua_State *L );
+static int playerL_landWindow( lua_State *L );
 /* Hail stuff. */
 static int playerL_commclose( lua_State *L );
 /* Cargo stuff. */
 static int playerL_addOutfit( lua_State *L );
 static int playerL_addShip( lua_State *L );
+static int playerL_swapShip( lua_State *L );
 static int playerL_misnActive( lua_State *L );
 static int playerL_misnDone( lua_State *L );
 static int playerL_evtActive( lua_State *L );
@@ -84,6 +89,7 @@ static const luaL_reg playerL_methods[] = {
    { "pay", playerL_pay },
    { "credits", playerL_credits },
    { "msg", playerL_msg },
+   { "msgClear", playerL_msgClear },
    { "omsgAdd", playerL_omsgAdd },
    { "omsgChange", playerL_omsgChange },
    { "omsgRm", playerL_omsgRm },
@@ -101,9 +107,11 @@ static const luaL_reg playerL_methods[] = {
    { "unboard", playerL_unboard },
    { "takeoff", playerL_takeoff },
    { "allowLand", playerL_allowLand },
+   { "landWindow", playerL_landWindow },
    { "commClose", playerL_commclose },
    { "addOutfit", playerL_addOutfit },
    { "addShip", playerL_addShip },
+   { "swapShip", playerL_swapShip },
    { "misnActive", playerL_misnActive },
    { "misnDone", playerL_misnDone },
    { "evtActive", playerL_evtActive },
@@ -128,6 +136,12 @@ static const luaL_reg playerL_cond_methods[] = {
    { "evtDone", playerL_evtDone },
    {0,0}
 }; /**< Conditional player lua methods. */
+
+
+/*
+ * Prototypes.
+ */
+static Pilot* playerL_newShip( lua_State *L );
 
 
 /**
@@ -189,10 +203,10 @@ static int playerL_shipname( lua_State *L )
  */
 static int playerL_pay( lua_State *L )
 {
-   int money;
+   double money;
 
-   money = luaL_checkint(L,1);
-   player_modCredits( money );
+   money = luaL_checknumber(L,1);
+   player_modCredits( (credits_t)round(money) );
 
    return 0;
 }
@@ -244,6 +258,17 @@ static int playerL_msg( lua_State *L )
    return 0;
 }
 /**
+ * @brief Clears the player's message buffer.
+ *
+ * @luafunc msgClear()
+ */
+static int playerL_msgClear( lua_State *L )
+{
+   (void) L;
+   gui_clearMessages();
+   return 0;
+}
+/**
  * @brief Adds an overlay message.
  *
  * @usage player.omsgAdd( "some_message", 5 )
@@ -283,7 +308,7 @@ static int playerL_omsgAdd( lua_State *L )
  * @usage player.omsgChange( omsg_id, "new message", 3 )
  *    @luaparam id ID of the overlay message to change.
  *    @luaparam msg Message to change to.
- *    @luaparam duration New duration to set.
+ *    @luaparam duration New duration to set (0. for infinity).
  *    @luareturn true if all went well, false otherwise.
  * @luafunc omsgChange( id, msg, duration )
  */
@@ -298,6 +323,10 @@ static int playerL_omsgChange( lua_State *L )
    id       = luaL_checklong(L,1);
    str      = luaL_checkstring(L,2);
    duration = luaL_checknumber(L,3);
+
+   /* Infinity. */
+   if (duration < 1e-10)
+      duration = INFINITY;
 
    /* Output. */
    ret      = omsg_change( id, str, duration );
@@ -542,12 +571,14 @@ static int playerL_cinematics( lua_State *L )
 
    /* Defaults. */
    abort_msg = NULL;
+   f_gui     = 0;
+   f_2x      = 0;
 
    /* Parse parameters. */
    b = lua_toboolean( L, 1 );
    if (lua_gettop(L) > 1) {
       if (!lua_istable(L,2)) {
-         NLUA_ERROR( L, "Second parameter to cinematics should be a table of options or ommitted!" );
+         NLUA_ERROR( L, "Second parameter to cinematics should be a table of options or omitted!" );
          return 0;
       }
 
@@ -565,6 +596,12 @@ static int playerL_cinematics( lua_State *L )
       lua_pop( L, 1 );
    }
 
+   /* Remove doublespeed. */
+   if (player_isFlag( PLAYER_DOUBLESPEED )) {
+      player_rmFlag( PLAYER_DOUBLESPEED );
+      pause_setSpeed(1.);
+   }
+
    if (b) {
       /* Do stuff. */
       player_autonavAbort( abort_msg );
@@ -572,7 +609,7 @@ static int playerL_cinematics( lua_State *L )
 
       if (f_gui)
          player_setFlag( PLAYER_CINEMATICS_GUI );
-   
+
       if (f_2x)
          player_setFlag( PLAYER_CINEMATICS_2X );
    }
@@ -612,10 +649,12 @@ static int playerL_unboard( lua_State *L )
  */
 static int playerL_takeoff( lua_State *L )
 {
-   (void) L;
+   if (!landed) {
+      NLUA_ERROR(L,"Player must be landed to force takeoff.");
+      return 0;
+   }
 
-   if (landed)
-      landed = 0;
+   land_queueTakeoff();
 
    return 0;
 }
@@ -631,15 +670,15 @@ static int playerL_takeoff( lua_State *L )
  * @usage player.allowLand( false ) -- Doesn't allow the player to land.
  * @usage player.allowLand( false, "No landing." ) -- Doesn't allow the player to land with the message "No landing."
  *
- *    @luaparam b Whether or not to allow the player to land (defaults to true if ommitted).
- *    @luaparam msg Message displayed when player tries to land (only if disallowed to land). Can be ommitted to use default.
+ *    @luaparam b Whether or not to allow the player to land (defaults to true if omitted).
+ *    @luaparam msg Message displayed when player tries to land (only if disallowed to land). Can be omitted to use default.
  * @luafunc allowLand( b, msg )
  */
 static int playerL_allowLand( lua_State *L )
 {
    int b;
    const char *str;
-   
+
    str = NULL;
    if (lua_gettop(L) > 0) {
       b     = lua_toboolean(L,1);
@@ -656,6 +695,60 @@ static int playerL_allowLand( lua_State *L )
       player_nolandMsg( str );
    }
    return 0;
+}
+
+
+/**
+ * @brief Sets the active land window.
+ *
+ * Valid windows are:<br/>
+ *  - main<br/>
+ *  - bar<br/>
+ *  - missions<br/>
+ *  - outfits<br/>
+ *  - shipyard<br/>
+ *  - equipment<br/>
+ *  - commodity<br/>
+ *
+ * @usage player.landWindow( "outfits" )
+ *    @luaparam winname Name of the window.
+ *    @luareturn True on success.
+ * @luafunc landwindow( winname )
+ */
+static int playerL_landWindow( lua_State *L )
+{
+   int ret;
+   const char *str;
+   int win;
+
+   if (!landed) {
+      NLUA_ERROR(L, "Must be landed to set the active land window.");
+      return 0;
+   }
+
+   str = luaL_checkstring(L,1);
+   if (strcasecmp(str,"main")==0)
+      win = LAND_WINDOW_MAIN;
+   else if (strcasecmp(str,"bar")==0)
+      win = LAND_WINDOW_BAR;
+   else if (strcasecmp(str,"missions")==0)
+      win = LAND_WINDOW_MISSION;
+   else if (strcasecmp(str,"outfits")==0)
+      win = LAND_WINDOW_OUTFITS;
+   else if (strcasecmp(str,"shipyard")==0)
+      win = LAND_WINDOW_SHIPYARD;
+   else if (strcasecmp(str,"equipment")==0)
+      win = LAND_WINDOW_EQUIPMENT;
+   else if (strcasecmp(str,"commodity")==0)
+      win = LAND_WINDOW_COMMODITY;
+   else
+      NLUA_INVALID_PARAMETER(L);
+
+   /* Sets the window. */
+   ret = land_setWindow( win );
+
+   lua_pushboolean( L, !ret );
+   return 1;
 }
 
 
@@ -714,34 +807,50 @@ static int playerL_addOutfit( lua_State *L  )
 
 
 /**
- * @brief Gives the player a new ship.
- *
- * @note Should be given when landed, ideally on a planet with a shipyard.
- *
- * @usage player.addShip( "Pirate Kestrel", "Seiryuu" ) -- Gives the player a Pirate Kestrel named Seiryuu if player cancels the naming.
- *
- *    @luaparam ship Name of the ship to add.
- *    @luaparam name Name to give the ship if player refuses to name it (defaults to shipname if ommitted).
- * @luafunc addShip( ship, name )
+ * @brief Helper function for playerL_addShip.
  */
-static int playerL_addShip( lua_State *L )
+static Pilot* playerL_newShip( lua_State *L )
 {
-   const char *str, *name;
+   const char *str, *name, *pntname;
    Ship *s;
-   int ret;
+   Pilot *new_ship;
+   Planet *pnt, *t;
+   int noname;
 
-   /* Must be landed. */
-   if (land_planet==NULL) {
-      NLUA_ERROR(L, "Player must be landed to add a ship.");
-      return 0;
-   }
+   /* Defaults. */
+   t = NULL;
 
    /* Handle parameters. */
    str  = luaL_checkstring(L, 1);
-   if (lua_isstring(L, 2))
-      name = lua_tostring(L, 2);
+   if (lua_gettop(L) > 1)
+      name = luaL_checkstring(L,2);
    else
       name = str;
+   if (lua_gettop(L) > 2)
+      pntname = luaL_checkstring (L,3);
+   else
+      pntname = NULL;
+   noname = lua_toboolean(L,4);
+
+   /* Get planet. */
+   if (pntname != NULL) {
+      pnt = planet_get( pntname );
+      if (pnt == NULL) {
+         NLUA_ERROR(L, "Planet '%s' not found!", pntname);
+         return 0;
+      }
+      /* Horrible hack to swap variables. */
+      t = land_planet;
+      land_planet = pnt;
+   }
+   else
+      pnt = NULL;
+
+   /* Must be landed if pnt is NULL. */
+   if ((pnt == NULL) && (land_planet==NULL)) {
+      NLUA_ERROR(L, "Player must be landed to add a ship without location parameter.");
+      return 0;
+   }
 
    /* Get ship. */
    s = ship_get(str);
@@ -750,10 +859,60 @@ static int playerL_addShip( lua_State *L )
       return 0;
    }
 
-   /* Add the ship. */
+   /* Add the ship, look in case it's cancelled. */
    do {
-      ret = player_newShip( s, name, 0 );
-   } while (ret != 0);
+      new_ship = player_newShip( s, name, 0, noname );
+   } while (new_ship == NULL);
+
+   /* Undo the horrible hack. */
+   if (t != NULL)
+      land_planet = t;
+
+   return new_ship;
+}
+
+
+/**
+ * @brief Gives the player a new ship.
+ *
+ * @note Should be given when landed, ideally on a planet with a shipyard.
+ *
+ * @usage player.addShip( "Pirate Kestrel", "Seiryuu" ) -- Gives the player a Pirate Kestrel named Seiryuu if player cancels the naming.
+ *
+ *    @luaparam ship Name of the ship to add.
+ *    @luaparam name Name to give the ship if player refuses to name it (defaults to shipname if omitted).
+ *    @luaparam loc Location to add to, if nil or omitted it adds it to local planet (must be landed).
+ *    @luaparam noname If true does not let the player name the ship (defaults to false).
+ * @luafunc addShip( ship, name, loc, noname )
+ */
+static int playerL_addShip( lua_State *L )
+{
+   playerL_newShip( L );
+   return 0;
+}
+
+
+/**
+ * @brief Swaps the player's current ship with a new ship given to him.
+ *    @luaparam ship Name of the ship to add.
+ *    @luaparam name Name to give the ship if player refuses to name it (defaults to shipname if omitted).
+ *    @luaparam loc Location to add to, if nil or omitted it adds it to local planet (must be landed).
+ *    @luaparam noname If true does not let the player name the ship (defaults to false).
+ *    @luaparam remove If true removes the player's current ship (so it replaces and doesn't swap).
+ * @luafunc swapShip( ship, name, loc, noname, remove )
+ */
+static int playerL_swapShip( lua_State *L )
+{
+   Pilot *p;
+   char *cur;
+   int remship;
+
+   remship = lua_toboolean(L,5);
+   p = playerL_newShip( L );
+   cur = player.p->name;
+   player_swapShip( p->name );
+   if (remship)
+      player_rmShip( cur );
 
    return 0;
 }
@@ -787,8 +946,9 @@ static int playerL_misnActive( lua_State *L )
 /**
  * @brief Checks to see if player has done a mission.
  *
- * @usage if player.misnDone( "The Space Family" ) then -- Player finished mission
+ * This only works with missions that have the unique flag.
  *
+ * @usage if player.misnDone( "The Space Family" ) then -- Player finished mission
  *    @luaparam name Name of the mission to check.
  *    @luareturn true if mission was finished, false if it wasn't.
  * @luafunc misnDone( name )
@@ -842,8 +1002,9 @@ static int playerL_evtActive( lua_State *L )
 /**
  * @brief Checks to see if player has done an event.
  *
- * @usage if player.evtDone( "Shipwreck" ) then -- Player finished event
+ * This only works with events that have the unique flag.
  *
+ * @usage if player.evtDone( "Shipwreck" ) then -- Player finished event
  *    @luaparam name Name of the event to check.
  *    @luareturn true if event was finished, false if it wasn't.
  * @luafunc evtDone( name )
@@ -869,7 +1030,7 @@ static int playerL_evtDone( lua_State *L )
 
 
 /**
- * @brief Teleports the player to a new system.
+ * @brief Teleports the player to a new system (only if not landed).
  *
  * Does not change the position nor velocity of the player.p, which will probably be wrong in the new system.
  *
@@ -883,6 +1044,14 @@ static int playerL_teleport( lua_State *L )
 {
    LuaSystem *sys;
    const char *name;
+
+   /* Must not be landed. */
+   if (landed)
+      NLUA_ERROR(L,"Can not teleport the player while landed!");
+   if (comm_isOpen())
+      NLUA_ERROR(L,"Can not teleport the player while the comm is open!");
+   if (player_isBoarded())
+      NLUA_ERROR(L,"Can not teleport the player while he is boarded!");
 
    /* Get a system. */
    if (lua_issystem(L,1)) {
@@ -906,6 +1075,7 @@ static int playerL_teleport( lua_State *L )
    /* Just in case remove hyperspace flags. */
    pilot_rmFlag( player.p, PILOT_HYPERSPACE );
    pilot_rmFlag( player.p, PILOT_HYP_BEGIN );
+   pilot_rmFlag( player.p, PILOT_HYP_BRAKE );
    pilot_rmFlag( player.p, PILOT_HYP_PREP );
 
    /* Free graphics. */

@@ -85,7 +85,7 @@ static void equipment_transChangeShip( unsigned int wid, char* str );
 static void equipment_changeShip( unsigned int wid );
 static void equipment_transportShip( unsigned int wid );
 static void equipment_unequipShip( unsigned int wid, char* str );
-static unsigned int equipment_transportPrice( char *shipname );
+static credits_t equipment_transportPrice( char *shipname );
 static void equipment_rightClickOutfits( unsigned int wid, char* str );
 static void equipment_toggleGuiOverride( unsigned int wid, char *name );
 static void setgui_load( unsigned int wdw, char *str );
@@ -278,7 +278,7 @@ void equipment_open( unsigned int wid )
       "Fuel:\n"
       "\n"
       "Transportation:\n"
-      "Where:";
+      "Location:";
    x = 20 + sw + 20 + 180 + 20 + 30;
    y = -190;
    window_addText( wid, x, y,
@@ -458,7 +458,7 @@ static void equipment_renderSlots( double bx, double by, double bw, double bh, v
 {
    double x, y;
    double w, h;
-   double tw, th;
+   double tw;
    int n, m;
    CstSlotWidget *wgt;
    Pilot *p;
@@ -476,7 +476,6 @@ static void equipment_renderSlots( double bx, double by, double bw, double bh, v
    /* Get dimensions. */
    equipment_calculateSlots( p, bw, bh, &w, &h, &n, &m );
    tw = bw / (double)n;
-   th = bh / (double)m;
 
    /* Draw weapon outfits. */
    x  = bx + (tw-w)/2;
@@ -671,7 +670,7 @@ static void equipment_renderOverlaySlots( double bx, double by, double bw, doubl
    int mover;
    double x, y;
    double w, h;
-   double tw, th;
+   double tw;
    int n, m;
    PilotOutfitSlot *slot;
    char alt[512];
@@ -690,7 +689,6 @@ static void equipment_renderOverlaySlots( double bx, double by, double bw, doubl
    /* Get dimensions. */
    equipment_calculateSlots( p, bw, bh, &w, &h, &n, &m );
    tw = bw / (double)n;
-   th = bh / (double)m;
 
    /* Get selected. */
    mover    = wgt->mouseover;
@@ -937,7 +935,7 @@ static void equipment_mouseSlots( unsigned int wid, SDL_Event* event,
    int selected, ret;
    double x, y;
    double w, h;
-   double tw, th;
+   double tw;
    CstSlotWidget *wgt;
    int n, m;
 
@@ -957,7 +955,6 @@ static void equipment_mouseSlots( unsigned int wid, SDL_Event* event,
    /* Get dimensions. */
    equipment_calculateSlots( p, bw, bh, &w, &h, &n, &m );
    tw = bw / (double)n;
-   th = bh / (double)m;
 
    /* Render weapon outfits. */
    selected = 0;
@@ -1075,6 +1072,7 @@ static int equipment_swapSlot( unsigned int wid, Pilot *p, PilotOutfitSlot *slot
    /* Update weapon sets if needed. */
    if (eq_wgt.selected->autoweap)
       pilot_weaponAuto( eq_wgt.selected );
+   pilot_weaponSane( eq_wgt.selected );
 
    /* Notify GUI of modification. */
    gui_setShip();
@@ -1096,6 +1094,12 @@ void equipment_regenLists( unsigned int wid, int outfits, int ships )
    int nout, nship;
    double offout, offship;
    char *s, selship[PATH_MAX];
+
+   /* Default.s */
+   nout     = 0;
+   nship    = 0;
+   offout   = 0.;
+   offship  = 0.;
 
    /* Save positions. */
    if (outfits) {
@@ -1177,6 +1181,7 @@ void equipment_addAmmo (void)
    /* Update weapon sets if needed. */
    if (p->autoweap)
       pilot_weaponAuto( p );
+   pilot_weaponSane( p );
 
    /* Notify GUI of modification. */
    gui_setShip();
@@ -1382,7 +1387,7 @@ void equipment_updateShips( unsigned int wid, char* str )
    char *shipname;
    Pilot *ship;
    char *loc, *nt;
-   unsigned int price;
+   credits_t price;
    int onboard;
    int cargo;
 
@@ -1519,10 +1524,8 @@ static void equipment_transChangeShip( unsigned int wid, char* str )
 {
    (void) str;
    char *shipname, *loc;
-   Pilot *ship;
 
    shipname = toolkit_getImageArray( wid, EQUIPMENT_SHIPS );
-   ship  = player_getShip( shipname );
    loc   = player_getLoc( shipname );
 
    if (strcmp(land_planet->name,loc)) /* ship not here */
@@ -1540,16 +1543,14 @@ static void equipment_transChangeShip( unsigned int wid, char* str )
 static void equipment_changeShip( unsigned int wid )
 {
    char *shipname;
-   Pilot *newship;
 
    shipname = toolkit_getImageArray( wid, EQUIPMENT_SHIPS );
-   newship = player_getShip(shipname);
 
    if (land_errDialogue( shipname, "swapEquipment" ))
       return;
 
    /* Swap ship. */
-   player_swapShip(shipname);
+   player_swapShip( shipname );
 
    /* Regenerate ship widget. */
    equipment_regenLists( wid, 0, 1 );
@@ -1564,7 +1565,7 @@ static void equipment_changeShip( unsigned int wid )
  */
 static void equipment_transportShip( unsigned int wid )
 {
-   unsigned int price;
+   credits_t price;
    char *shipname, buf[ECON_CRED_STRLEN];
 
    shipname = toolkit_getImageArray( wid, EQUIPMENT_SHIPS );
@@ -1628,7 +1629,7 @@ void equipment_setGui( unsigned int wid, char* str )
    /* In case there are none. */
    if (guis == NULL) {
       WARN("No GUI available.");
-      dialogue_alert( "There are no GUI available, this means something went wrong somewhere. Inform the NAEV maintainer." );
+      dialogue_alert( "There are no GUI available, this means something went wrong somewhere. Inform the Naev maintainer." );
       return;
    }
 
@@ -1783,6 +1784,7 @@ static void equipment_unequipShip( unsigned int wid, char* str )
    /* Update weapon sets if needed. */
    if (ship->autoweap)
       pilot_weaponAuto( ship );
+   pilot_weaponSane( ship );
 
    /* Notify GUI of modification. */
    gui_setShip();
@@ -1796,7 +1798,7 @@ static void equipment_sellShip( unsigned int wid, char* str )
 {
    (void)str;
    char *shipname, buf[ECON_CRED_STRLEN], *name;
-   int price;
+   credits_t price;
 
    shipname = toolkit_getImageArray( wid, EQUIPMENT_SHIPS );
 
@@ -1832,18 +1834,18 @@ static void equipment_sellShip( unsigned int wid, char* str )
  *    @param shipname Name of the ship to get the transport price.
  *    @return The price to transport the ship to the current planet.
  */
-static unsigned int equipment_transportPrice( char* shipname )
+static credits_t equipment_transportPrice( char* shipname )
 {
    char *loc;
    Pilot* ship;
-   unsigned int price;
+   credits_t price;
 
    ship = player_getShip(shipname);
    loc = player_getLoc(shipname);
    if (strcmp(loc,land_planet->name)==0) /* already here */
       return 0;
 
-   price = (unsigned int)(sqrt(ship->ship->mass)*5000.);
+   price = (credits_t)ceil(sqrt(ship->ship->mass)*5000.);
 
    return price;
 }

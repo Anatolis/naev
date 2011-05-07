@@ -31,18 +31,27 @@
 
 
 static int board_stopboard = 0; /**< Whether or not to unboard. */
+static int board_boarded   = 0;
 
 
 /*
  * prototypes
  */
-static void board_exit( unsigned int wdw, char* str );
 static void board_stealCreds( unsigned int wdw, char* str );
 static void board_stealCargo( unsigned int wdw, char* str );
 static void board_stealFuel( unsigned int wdw, char* str );
 static int board_trySteal( Pilot *p );
 static int board_fail( unsigned int wdw );
 static void board_update( unsigned int wdw );
+
+
+/**
+ * @brief Gets if the player is boarded.
+ */
+int player_isBoarded (void)
+{
+   return board_boarded;
+}
 
 
 /**
@@ -59,7 +68,6 @@ void player_board (void)
    char c;
    HookParam hparam[2];
 
-
    if (player.p->target==PLAYER_ID) {
       player_message("\erYou need a target to board first!");
       return;
@@ -68,7 +76,15 @@ void player_board (void)
    p = pilot_get(player.p->target);
    c = pilot_getFactionColourChar( p );
 
-   if (!pilot_isDisabled(p)) {
+   if (pilot_isFlag(p,PILOT_NOBOARD)) {
+      player_message("\erTarget ship can not be boarded.");
+      return;
+   }
+   else if (pilot_isFlag(p,PILOT_BOARDED)) {
+      player_message("\erYour target cannot be boarded again.");
+      return;
+   }
+   else if (!pilot_isDisabled(p) && !pilot_isFlag(p,PILOT_BOARDABLE)) {
       player_message("\erYou cannot board a ship that isn't disabled!");
       return;
    }
@@ -83,14 +99,6 @@ void player_board (void)
       player_message("\erYou are going too fast to board the ship.");
       return;
    }
-   else if (pilot_isFlag(p,PILOT_NOBOARD)) {
-      player_message("\erTarget ship can not be boarded.");
-      return;
-   }
-   else if (pilot_isFlag(p,PILOT_BOARDED)) {
-      player_message("\erYour target cannot be boarded again.");
-      return;
-   }
    /* We'll recover it if it's the pilot's ex-escort. */
    else if (p->parent == PLAYER_ID) {
       /* Try to recover. */
@@ -101,6 +109,8 @@ void player_board (void)
       }
    }
 
+   /* Is boarded. */
+   board_boarded = 1;
 
    /* pilot will be boarded */
    pilot_setFlag(p,PILOT_BOARDED);
@@ -118,8 +128,10 @@ void player_board (void)
    hooks_runParam( "board", hparam );
    pilot_runHook(p, PILOT_HOOK_BOARD);
 
-   if (board_stopboard)
+   if (board_stopboard) {
+      board_boarded = 0;
       return;
+   }
 
    /*
     * create the boarding window
@@ -164,10 +176,13 @@ void board_unboard (void)
  *    @param wdw Window triggering the function.
  *    @param str Unused.
  */
-static void board_exit( unsigned int wdw, char* str )
+void board_exit( unsigned int wdw, char* str )
 {
    (void) str;
    window_destroy( wdw );
+
+   /* Is not boarded. */
+   board_boarded = 0;
 }
 
 
@@ -277,9 +292,9 @@ static void board_stealFuel( unsigned int wdw, char* str )
 
 
 /**
- * @brief Checks to see if the pilot can steal from it's target.
+ * @brief Checks to see if the pilot can steal from its target.
  *
- *    @param p Pilot stealing from it's target.
+ *    @param p Pilot stealing from its target.
  *    @return 0 if successful, 1 if fails, -1 if fails and kills target.
  */
 static int board_trySteal( Pilot *p )
@@ -298,6 +313,7 @@ static int board_trySteal( Pilot *p )
    /* Triggered self destruct. */
    if (RNGF() < 0.4) {
       /* Don't actually kill. */
+      target->shield = 0.;
       target->armour = 1.;
       /* This will make the boarding ship take the possible faction hit. */
       pilot_hit( target, NULL, p->id, DAMAGE_TYPE_KINETIC, 100., 1. );
@@ -323,7 +339,7 @@ static int board_fail( unsigned int wdw )
    if (ret == 0)
       return 0;
    else if (ret < 0) /* killed ship. */
-      player_message("\epYou have tripped the ship's self destruct mechanism!");
+      player_message("\epYou have tripped the ship's self-destruct mechanism!");
    else /* you just got locked out */
       player_message("\epThe ship's security system locks %s out.",
             (player.p->ship->crew > 0) ? "your crew" : "you" );

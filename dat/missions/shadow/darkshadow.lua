@@ -143,22 +143,20 @@ end
 
 -- Handle boarding of the Seiryuu
 function seiryuuBoard()
+    seiryuu:setActiveBoard(false)
+    seiryuu:setHilight(false)
+    player.unboard()
     if stage == 1 then -- Briefing
         tk.msg(title[2], text[2]:format(player.name()))
         tk.msg(title[2], text[3]:format(player.name()))
         tk.msg(title[2], text[4])
         tk.msg(title[2], text[5]:format(player.name(), jorekplanet1:name(), joreksys1:name(), jorekplanet1:name()))
-        player.unboard()
-        seiryuu:setHilight(false)
         accept2()
         misn.markerRm(firstmarker)
         stage = 2
     elseif stage == 6 then -- Debriefing
         tk.msg(title[7], text[11]:format(player.name(), player.name()))
         player.pay(500000) -- 500K
-        player.unboard()
-        seiryuu:setHilight(false)
-        seiryuu:setHealth(100, 100)
         seiryuu:control()
         seiryuu:hyperspace()
         var.pop("darkshadow_active")
@@ -192,8 +190,9 @@ function enter()
     if system.cur() == seirsys then
         seiryuu = pilot.add("Seiryuu", nil, vec2.new(300, 300) + seirplanet:pos())[1]
         seiryuu:setInvincible(true)
-        seiryuu:disable()
+        seiryuu:control()
         if stage == 1 or stage == 6 then
+            seiryuu:setActiveBoard(true)
             seiryuu:setHilight(true)
             hook.pilot(seiryuu, "board", "seiryuuBoard")
         else
@@ -357,7 +356,6 @@ end
 
 -- Hook for the idle status of the leader of a squad.
 -- Makes the squads patrol their routes.
--- TODO: make this shorter
 function leaderIdle(pilot)
     for i, j in ipairs(leader) do
         if j == pilot then
@@ -414,7 +412,6 @@ end
 function continueAmbush()
     genbu:setHostile()
     genbu:attack(player.pilot())
-    -- TODO: launch interceptors
     spinter = hook.timer(5000, "spawnInterceptors")
 end
 
@@ -437,7 +434,7 @@ function land()
     if planet.cur() == jorekplanet1 and stage == 2 then
         -- Thank you player, but our SHITMAN is in another castle.
         tk.msg(NPCtitle, NPCtext)
-        barmanNPC = misn.npcAdd("barman", "Barman", "thief2", NPCdesc, 4)
+        barmanNPC = misn.npcAdd("barman", "Barman", "barman", NPCdesc, 4)
     elseif planet.cur() == jorekplanet2 and stage == 3 then
         joreknpc = misn.npcAdd("jorek", "Jorek", "jorek", Jordesc, 4)
     end

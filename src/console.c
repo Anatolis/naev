@@ -16,9 +16,9 @@
 #include <string.h>
 
 #define lua_c
-#include "lua.h"
-#include "lauxlib.h"
-#include "lualib.h"
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
 
 #include "log.h"
 #include "nlua.h"
@@ -28,6 +28,7 @@
 #include "nlua_col.h"
 #include "nlua_bkg.h"
 #include "nlua_camera.h"
+#include "nlua_music.h"
 #include "font.h"
 #include "toolkit.h"
 #include "nfile.h"
@@ -306,8 +307,13 @@ int cli_init (void)
    nlua_loadCamera( cli_state, 0 );
    nlua_loadTk( cli_state );
    nlua_loadCLI( cli_state );
+   nlua_loadMusic( cli_state, 0 );
    luaL_register( cli_state, "_G", cli_methods );
    lua_settop( cli_state, 0 );
+
+   /* Mark as console. */
+   lua_pushboolean( cli_state, 1 );
+   lua_setglobal( cli_state, "__cli" );
 
    /* Set the font. */
    cli_font    = malloc( sizeof(glFont) );

@@ -31,6 +31,7 @@
 #include "conf.h"
 #include "camera.h"
 #include "map_overlay.h"
+#include "hook.h"
 
 
 #define MOUSE_HIDE   ( 3.) /**< Time in seconds to wait before hiding mouse again. */
@@ -42,9 +43,10 @@
 
 /* keybinding structure */
 /**
- * @brief NAEV Keybinding.
+ * @brief Naev Keybinding.
  */
 typedef struct Keybind_ {
+   int disabled; /**< Whether or not it's disabled. */
    const char *name; /**< keybinding name, taken from keybind_info */
    KeybindType type; /**< type, defined in player.h */
    SDLKey key; /**< key/axis/button event number */
@@ -52,7 +54,8 @@ typedef struct Keybind_ {
 } Keybind;
 
 
-static Keybind** input_keybinds; /**< contains the players keybindings */
+static Keybind* input_keybinds; /**< contains the players keybindings */
+static int input_numbinds; /**< Number of keybindings. */
 
 /* name of each keybinding */
 const char *keybind_info[][3] = {
@@ -101,6 +104,7 @@ const char *keybind_info[][3] = {
    { "starmap", "Star Map", "Opens the Star Map." },
    { "jump", "Initiate Jump", "Attempts to jump through a jump gate." },
    { "overlay", "Overlay Map", "Opens the System Overlay map." },
+   { "mousefly", "Mouse Flight", "Toggles mouse flying." },
    /* Communication. */
    { "log_up", "Log Scroll Up", "Scrolls the log upwards." },
    { "log_down", "Log Scroll Down", "Scrolls the log downwards." },
@@ -179,6 +183,7 @@ static void input_keyConvDestroy (void);
 static void input_key( int keynum, double value, double kabs, int repeat );
 static void input_clickZoom( double modifier );
 static void input_clickevent( SDL_Event* event );
+static void input_mouseMove( SDL_Event* event );
 
 
 /**
@@ -231,6 +236,7 @@ void input_setDefault (void)
    input_setKeybind( "starmap", KEYBIND_KEYBOARD, SDLK_m, NMOD_NONE );
    input_setKeybind( "jump", KEYBIND_KEYBOARD, SDLK_j, NMOD_NONE );
    input_setKeybind( "overlay", KEYBIND_KEYBOARD, SDLK_TAB, NMOD_ALL );
+   input_setKeybind( "mousefly", KEYBIND_KEYBOARD, SDLK_x, NMOD_CTRL );
    /* Communication. */
    input_setKeybind( "log_up", KEYBIND_KEYBOARD, SDLK_PAGEUP, NMOD_ALL );
    input_setKeybind( "log_down", KEYBIND_KEYBOARD, SDLK_PAGEDOWN, NMOD_ALL );
@@ -310,17 +316,17 @@ void input_init (void)
 
    /* Get the number of keybindings. */
    for (i=0; strcmp(keybind_info[i][0],"end"); i++);
-      input_keybinds = malloc(i*sizeof(Keybind*));
+   input_numbinds = i;
+   input_keybinds = malloc(input_numbinds*sizeof(Keybind));
 
    /* Create sane null keybinding for each. */
-   for (i=0; strcmp(keybind_info[i][0],"end"); i++) {
-      temp = malloc(sizeof(Keybind));
+   for (i=0; i<input_numbinds; i++) {
+      temp = &input_keybinds[i];
       memset( temp, 0, sizeof(Keybind) );
       temp->name        = keybind_info[i][0];
       temp->type        = KEYBIND_NULL;
       temp->key         = SDLK_UNKNOWN;
       temp->mod         = NMOD_NONE;
-      input_keybinds[i] = temp;
    }
 
    /* Generate Key translation table. */
@@ -333,12 +339,46 @@ void input_init (void)
  */
 void input_exit (void)
 {
-   int i;
-   for (i=0; strcmp(keybind_info[i][0],"end"); i++)
-      free(input_keybinds[i]);
    free(input_keybinds);
 
    input_keyConvDestroy();
+}
+
+
+/**
+ * @brief Enables all the keybinds.
+ */
+void input_enableAll (void)
+{
+   int i;
+   for (i=0; strcmp(keybind_info[i][0],"end"); i++)
+      input_keybinds[i].disabled = 0;
+}
+
+
+/**
+ * @brief Disables all the keybinds.
+ */
+void input_disableAll (void)
+{
+   int i;
+   for (i=0; strcmp(keybind_info[i][0],"end"); i++)
+      input_keybinds[i].disabled = 1;
+}
+
+
+/**
+ * @brief Enables or disables a keybind.
+ */
+void input_toggleEnable( const char *key, int enable )
+{
+   int i;
+   for (i=0; i<input_numbinds; i++) {
+      if (strcmp(key, input_keybinds[i].name)==0) {
+         input_keybinds[i].disabled = !enable;
+         break;
+      }
+   }
 }
 
 
@@ -390,7 +430,7 @@ static void input_keyConvDestroy (void)
 
 
 /**
- * @brief Gets the key id from it's name.
+ * @brief Gets the key id from its name.
  *
  *    @param name Name of the key to get id from.
  *    @return ID of the key.
@@ -446,14 +486,15 @@ SDLKey input_keyConv( const char *name )
 void input_setKeybind( const char *keybind, KeybindType type, int key, SDLMod mod )
 {
    int i;
-   for (i=0; strcmp(keybind_info[i][0],"end"); i++)
-      if (strcmp(keybind, input_keybinds[i]->name)==0) {
-         input_keybinds[i]->type = type;
-         input_keybinds[i]->key = key;
+   for (i=0; i<input_numbinds; i++) {
+      if (strcmp(keybind, input_keybinds[i].name)==0) {
+         input_keybinds[i].type = type;
+         input_keybinds[i].key = key;
          /* Non-keyboards get mod NMOD_ALL to always match. */
-         input_keybinds[i]->mod = (type==KEYBIND_KEYBOARD) ? mod : NMOD_ALL;
+         input_keybinds[i].mod = (type==KEYBIND_KEYBOARD) ? mod : NMOD_ALL;
          return;
       }
+   }
    WARN("Unable to set keybinding '%s', that command doesn't exist", keybind);
 }
 
@@ -469,14 +510,15 @@ void input_setKeybind( const char *keybind, KeybindType type, int key, SDLMod mo
 SDLKey input_getKeybind( const char *keybind, KeybindType *type, SDLMod *mod )
 {
    int i;
-   for (i=0; strcmp(keybind_info[i][0],"end"); i++)
-      if (strcmp(keybind, input_keybinds[i]->name)==0) {
+   for (i=0; i<input_numbinds; i++) {
+      if (strcmp(keybind, input_keybinds[i].name)==0) {
          if (type != NULL)
-            (*type) = input_keybinds[i]->type;
+            (*type) = input_keybinds[i].type;
          if (mod != NULL)
-            (*mod) = input_keybinds[i]->mod;
-         return input_keybinds[i]->key;
+            (*mod) = input_keybinds[i].mod;
+         return input_keybinds[i].key;
       }
+   }
    WARN("Unable to get keybinding '%s', that command doesn't exist", keybind);
    return (SDLKey)-1;
 }
@@ -514,8 +556,8 @@ const char *input_keyAlreadyBound( KeybindType type, int key, SDLMod mod )
 {
    int i;
    Keybind *k;
-   for (i=0; strcmp(keybind_info[i][0],"end"); i++) {
-      k = input_keybinds[i];
+   for (i=0; i<input_numbinds; i++) {
+      k = &input_keybinds[i];
 
       /* Type must match. */
       if (k->type != type)
@@ -558,7 +600,7 @@ const char* input_getKeybindDescription( const char *keybind )
 {
    int i;
    for (i=0; strcmp(keybind_info[i][0],"end"); i++)
-      if (strcmp(keybind, input_keybinds[i]->name)==0)
+      if (strcmp(keybind, input_keybinds[i].name)==0)
          return keybind_info[i][2];
    WARN("Unable to get keybinding description '%s', that command doesn't exist", keybind);
    return NULL;
@@ -566,10 +608,10 @@ const char* input_getKeybindDescription( const char *keybind )
 
 
 /**
- * @brief Translates SDL modifier to NAEV modifier.
+ * @brief Translates SDL modifier to Naev modifier.
  *
  *    @param mod SDL modifier to translate.
- *    @return NAEV modifier.
+ *    @return Naev modifier.
  */
 SDLMod input_translateMod( SDLMod mod )
 {
@@ -622,7 +664,7 @@ void input_update( double dt )
 }
 
 
-#define KEY(s)    (strcmp(input_keybinds[keynum]->name,s)==0) /**< Shortcut for ease. */
+#define KEY(s)    (strcmp(input_keybinds[keynum].name,s)==0) /**< Shortcut for ease. */
 #define INGAME()  (!toolkit_isOpen() && !paused) /**< Makes sure player is in game. */
 #define NOHYP()   \
 ((player.p != NULL) && !pilot_isFlag(player.p,PILOT_HYP_PREP) &&\
@@ -640,6 +682,7 @@ void input_update( double dt )
 static void input_key( int keynum, double value, double kabs, int repeat )
 {
    unsigned int t;
+   HookParam hparam[3];
 
    /* Repetition stuff. */
    if (conf.repeat_delay != 0) {
@@ -690,8 +733,8 @@ static void input_key( int keynum, double value, double kabs, int repeat )
             input_accelLast = t;
       }
    /* Afterburning. */
-   } else if (KEY("afterburn") && INGAME() && !repeat) {
-      if ((value==KEY_PRESS) && NOHYP() && NODEAD()) {
+   } else if (KEY("afterburn") && !repeat) {
+      if ((value==KEY_PRESS) && INGAME() && NOHYP() && NODEAD()) {
          player_afterburn();
          input_afterburnerButton = 1;
       }
@@ -872,6 +915,9 @@ static void input_key( int keynum, double value, double kabs, int repeat )
       }
    } else if (KEY("overlay") && NODEAD() && INGAME() && !repeat) {
       ovr_key( value );
+   } else if (KEY("mousefly") && NODEAD() && !repeat) {
+      if (value==KEY_PRESS)
+         player_toggleMouseFly();
 
 
    /*
@@ -942,6 +988,19 @@ static void input_key( int keynum, double value, double kabs, int repeat )
    } else if (KEY("console") && NODEAD() && !repeat) {
       if (value==KEY_PRESS) cli_open();
    }
+
+   /* Key press not used. */
+   else {
+      return;
+   }
+
+   /* Run the hook. */
+   hparam[0].type    = HOOK_PARAM_STRING;
+   hparam[0].u.str   = input_keybinds[keynum].name;
+   hparam[1].type    = HOOK_PARAM_BOOL;
+   hparam[1].u.b     = (value > 0.);
+   hparam[2].type    = HOOK_PARAM_SENTINAL;
+   hooks_runParam( "input", hparam );
 }
 #undef KEY
 
@@ -965,19 +1024,23 @@ static void input_keyevent( const int event, const SDLKey key, const SDLMod mod,
 static void input_joyaxis( const SDLKey axis, const int value )
 {
    int i, k;
-   for (i=0; strcmp(keybind_info[i][0],"end"); i++) {
-      if (input_keybinds[i]->key == axis) {
+   for (i=0; i<input_numbinds; i++) {
+      if (input_keybinds[i].key == axis) {
          /* Positive axis keybinding. */
-         if ((input_keybinds[i]->type == KEYBIND_JAXISPOS)
+         if ((input_keybinds[i].type == KEYBIND_JAXISPOS)
                && (value >= 0)) {
             k = (value > 0) ? KEY_PRESS : KEY_RELEASE;
+            if ((k == KEY_PRESS) && input_keybinds[i].disabled)
+               continue;
             input_key( i, k, fabs(((double)value)/32767.), 0 );
          }
 
          /* Negative axis keybinding. */
-         if ((input_keybinds[i]->type == KEYBIND_JAXISNEG)
+         if ((input_keybinds[i].type == KEYBIND_JAXISNEG)
                && (value <= 0)) {
             k = (value < 0) ? KEY_PRESS : KEY_RELEASE;
+            if ((k == KEY_PRESS) && input_keybinds[i].disabled)
+               continue;
             input_key( i, k, fabs(((double)value)/32767.), 0 );
          }
       }
@@ -991,10 +1054,13 @@ static void input_joyaxis( const SDLKey axis, const int value )
 static void input_joyevent( const int event, const SDLKey button )
 {
    int i;
-   for (i=0; strcmp(keybind_info[i][0],"end"); i++)
-      if ((input_keybinds[i]->type == KEYBIND_JBUTTON) &&
-            (input_keybinds[i]->key == button))
+   for (i=0; i<input_numbinds; i++) {
+      if ((event == KEY_PRESS) && input_keybinds[i].disabled)
+         continue;
+      if ((input_keybinds[i].type == KEYBIND_JBUTTON) &&
+            (input_keybinds[i].key == button))
          input_key(i, event, -1., 0);
+   }
 }
 
 
@@ -1012,14 +1078,16 @@ static void input_keyevent( const int event, SDLKey key, const SDLMod mod, const
    int i;
    SDLMod mod_filtered;
 
-   /* Filter to "NAEV" modifiers. */
+   /* Filter to "Naev" modifiers. */
    mod_filtered = input_translateMod(mod);
 
-   for (i=0; strcmp(keybind_info[i][0],"end"); i++) {
-      if ((input_keybinds[i]->type == KEYBIND_KEYBOARD) &&
-            (input_keybinds[i]->key == key)) {
-         if ((input_keybinds[i]->mod == mod_filtered) ||
-               (input_keybinds[i]->mod == NMOD_ALL) ||
+   for (i=0; i<input_numbinds; i++) {
+      if ((event == KEY_PRESS) && input_keybinds[i].disabled)
+         continue;
+      if ((input_keybinds[i].type == KEYBIND_KEYBOARD) &&
+            (input_keybinds[i].key == key)) {
+         if ((input_keybinds[i].mod == mod_filtered) ||
+               (input_keybinds[i].mod == NMOD_ALL) ||
                (event == KEY_RELEASE)) /**< Release always gets through. */
             input_key(i, event, -1., repeat);
             /* No break so all keys get pressed if needed. */
@@ -1037,19 +1105,38 @@ static void input_clickZoom( double modifier )
       cam_setZoomTarget( cam_getZoomTarget() * modifier );
 }
 
+/**
+ * @brief Provides mouse X and Y coordinates for mouse flying.
+ */
+static void input_mouseMove( SDL_Event* event )
+{
+   int mx, my;
+
+   gl_windowToScreenPos( &mx, &my, event->button.x, event->button.y );
+   player.mousex = mx;
+   player.mousey = my;
+}
 
 /**
  * @brief Handles a click event.
  */
 static void input_clickevent( SDL_Event* event )
 {
-   unsigned int pid, opid;
+   unsigned int pid;
    Pilot *p;
-   int mx, my;
-   double x, y, z, r, d;
+   int mx, my, mxr, myr, pntid, jpid;
+   int rx, ry, rh, rw, res;
+   double x, y, m, r, rp, d, dp, px, py;
+   double ang, angp, mouseang;
    Planet *pnt;
    JumpPoint *jp;
-   int pntid, opntid, jpid, ojpid;
+   HookParam hparam[2];
+
+   /* Generate hook. */
+   hparam[0].type    = HOOK_PARAM_NUMBER;
+   hparam[0].u.num   = event->button.button;
+   hparam[1].type    = HOOK_PARAM_SENTINAL;
+   hooks_runParam( "mouse", hparam );
 
    /* Handle zoom. */
    if (event->button.button == SDL_BUTTON_WHEELUP) {
@@ -1061,6 +1148,12 @@ static void input_clickevent( SDL_Event* event )
       return;
    }
 
+   /* Middle mouse enables mouse flying. */
+   if (event->button.button == SDL_BUTTON_MIDDLE) {
+      player_toggleMouseFly();
+      return;
+   }
+
    /* Mouse targetting is left only. */
    if (event->button.button != SDL_BUTTON_LEFT)
       return;
@@ -1069,66 +1162,94 @@ static void input_clickevent( SDL_Event* event )
    if (player_isFlag(PLAYER_DESTROYED) || (player.p == NULL))
       return;
 
-   /* Translate to coordinates. */
+   px = player.p->solid->pos.x;
+   py = player.p->solid->pos.y;
    gl_windowToScreenPos( &mx, &my, event->button.x, event->button.y );
    gl_screenToGameCoords( &x, &y, (double)mx, (double)my );
-   z = cam_getZoom();
+   if ((mx <= 15 || my <= 15 ) || (my >= gl_screen.h - 15 || mx >= gl_screen.w - 15)) { /* Border */
+      x = (mx - (gl_screen.w / 2.)) + px;
+      y = (my - (gl_screen.h / 2.)) + py;
+      mouseang = atan2(py - y, px -  x);
+      angp = pilot_getNearestAng( player.p, &pid, mouseang, 1 );
+      ang  = system_getClosestAng( cur_system, &pntid, &jpid, x, y, mouseang );
 
-   /* Get closest pilot. */
-   opid = player.p->target;
-   pid = pilot_getNearestPos( player.p, x, y, 1 );
-   p   = pilot_get(pid);
-   r   = MAX( 1.5 * PILOT_SIZE_APROX * p->ship->gfx_space->sw / 2, 100. ) / z;
-   d   = pow2(x-p->solid->pos.x) + pow2(y-p->solid->pos.y);
-   if (d < pow2(r)) {
-      player_targetSet( pid );
+      if  ((ABS(angle_diff(mouseang, angp)) > M_PI / 64) ||
+            ABS(angle_diff(mouseang, ang)) < ABS(angle_diff(mouseang, angp)))
+         pid = PLAYER_ID; /* Pilot angle is too great, or planet/jump is closer. */
+      if  (ABS(angle_diff(mouseang, ang)) > M_PI / 64 )
+         jpid = pntid = -1; /* Asset angle difference is too great. */
+   }
+   else { /* Radar targeting requires raw coordinates. */
+      mxr = event->button.x;
+      myr  = gl_screen.rh - event->button.y;
+      gui_radarGetPos( &rx, &ry );
+      gui_radarGetDim( &rw, &rh );
+      if ((mxr > rx && mxr <= rx + rw ) && (myr > ry && myr <= ry + rh )) { /* Radar */
+         m = 1;
+         gui_radarGetRes( &res );
+         x = (mxr - (rx + rw / 2.)) * res + px;
+         y = (myr - (ry + rh / 2.)) * res + py;
+      }
+      else /* Visual (on-screen) */
+         m = res = 1. / cam_getZoom();
+      dp = pilot_getNearestPos( player.p, &pid, x, y, 1 );
+      d  = system_getClosest( cur_system, &pntid, &jpid, x, y );
+      rp = MAX( 1.5 * PILOT_SIZE_APROX * pilot_get(pid)->ship->gfx_space->sw / 2 * m,  10. * res);
 
+      if (pntid >=0) { /* Planet is closer. */
+         pnt = cur_system->planets[ pntid ];
+         r  = MAX( 1.5 * pnt->radius, 100. );
+      }
+      else if (jpid >= 0) {
+         jp = &cur_system->jumps[ jpid ];
+         r  = MAX( 1.5 * jp->radius, 100. );
+      }
+      else {
+         r  = 0.;
+      }
+      /* Reject pilot if it's too far or a valid asset is closer. */
+      if (dp > pow2(rp) || (d < pow2(r) && dp < pow2(rp) && dp >  d))
+         pid = PLAYER_ID;
+      if (d > pow2(r)) /* Planet or jump point is too far. */
+         jpid = pntid = -1;
+   }
+
+   if (pid != PLAYER_ID) {
       /* Apply an action if already selected. */
-      if (!pilot_isFlag(player.p, PILOT_DEAD) &&
-            (pid == opid) && (pid != PLAYER_ID)) {
-         if (pilot_isDisabled(p))
+      if (!pilot_isFlag(player.p, PILOT_DEAD) && (pid == player.p->target)) {
+         p = pilot_get(pid);
+         if (pilot_isDisabled(p) || pilot_isFlag(p, PILOT_BOARDABLE))
             player_board();
          else
             player_hail();
       }
-      return;
+      else
+         player_targetSet( pid );
    }
-
-   /* Get closest planet and/or jump point. */
-   system_getClosest( cur_system, &pntid, &jpid, x, y );
-   /* Planet is closest. */
-   if (pntid >= 0) {
-      opntid = player.p->nav_planet;
-      pnt = cur_system->planets[ pntid ];
-      d  = pow2(x-pnt->pos.x) + pow2(y-pnt->pos.y);
-      r  = MAX( 1.5 * pnt->radius, 100. );
-      if (d < pow2(r)) {
+   else if (pntid >= 0) { /* Planet is closest. */
+      if (pntid == player.p->nav_planet) {
+         pnt = cur_system->planets[ pntid ];
+         if (planet_hasService(pnt, PLANET_SERVICE_LAND) &&
+               (!areEnemies( player.p->faction, pnt->faction ) || pnt->bribed ))
+            player_land();
+         else
+            player_hailPlanet();
+      }
+      else
          player_targetPlanetSet( pntid );
-         if (pntid == opntid) {
-            if (!areEnemies( player.p->faction, pnt->faction ) || pnt->bribed )
-               player_land();
-            else
-               player_hailPlanet();
-         }
-      }
    }
-   /* Jump point is closest. */
-   else if (jpid >= 0) {
-      ojpid = player.p->nav_hyperspace;
+   else if (jpid >= 0) { /* Jump point is closest. */
       jp = &cur_system->jumps[ jpid ];
-      d  = pow2(x-jp->pos.x) + pow2(y-jp->pos.y);
-      r  = MAX( 1.5 * jp->radius, 100. );
-      if (d < pow2(r)) {
-         player_targetHyperspaceSet( jpid );
-         if (jpid == ojpid) {
-            if (space_canHyperspace(player.p)) {
-               if (!paused) player_autonavAbort(NULL);
-               player_jump();
-            }
-            else
-               player_autonavStart();
+      if (jpid == player.p->nav_hyperspace) {
+         if (space_canHyperspace(player.p)) {
+            if (!paused) player_autonavAbort(NULL);
+            player_jump();
          }
+         else
+            player_autonavStart();
       }
+      else
+         player_targetHyperspaceSet( jpid );
    }
 }
 
@@ -1193,6 +1314,9 @@ void input_handle( SDL_Event* event )
          input_clickevent( event );
          break;
 
+      case SDL_MOUSEMOTION:
+         input_mouseMove( event );
+         break;
 
       default:
          break;

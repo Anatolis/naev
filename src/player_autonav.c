@@ -23,9 +23,12 @@ extern double player_acc; /**< Player acceleration. */
 extern int map_npath; /**< @todo remove */
 
 static double tc_mod    = 1.; /**< Time compression modifier. */
-static double tc_max    = 1.; /**< Maximum time compression. */
 static double tc_down   = 0.; /**< Rate of decrement. */
 static int tc_rampdown  = 0; /**< Ramping down time compression? */
+static double lasts;
+static double lasta;
+static int slockons;
+static double abort_mod = 1.;
 
 
 /*
@@ -54,6 +57,15 @@ void player_autonavStart (void)
       return;
    }
 
+   if (pilot_isFlag( player.p, PILOT_NOJUMP)) {
+      player_message("\erHyperspace drive is offline.");
+      return;
+   }
+
+   if player_isFlag(PLAYER_AUTONAV) {
+      player_autonavAbort(NULL);
+      return;
+   }
    player_autonavSetup();
    player.autonav = AUTONAV_JUMP_APPROACH;
 }
@@ -66,11 +78,19 @@ static void player_autonavSetup (void)
 {
    player_message("\epAutonav initialized.");
    if (!player_isFlag(PLAYER_AUTONAV)) {
-      tc_mod         = 1.;
-      tc_max         = conf.compression_velocity / solid_maxspeed(player.p->solid, player.p->speed, player.p->thrust);
+      tc_mod    = 1.;
+      if (conf.compression_mult > 1.)
+         player.tc_max = MIN( conf.compression_velocity / solid_maxspeed(player.p->solid, player.p->speed, player.p->thrust), conf.compression_mult );
+      else
+         player.tc_max = conf.compression_velocity / solid_maxspeed(player.p->solid, player.p->speed, player.p->thrust);
    }
-   tc_rampdown    = 0;
-   tc_down        = 0.;
+   tc_rampdown  = 0;
+   tc_down      = 0.;
+   lasts        = player.p->shield / player.p->shield_max;
+   lasta        = player.p->armour / player.p->armour_max;
+   slockons     = player.p->lockons;
+   if (player.autonav_timer <= 0.)
+      abort_mod = 1.;
    player_setFlag(PLAYER_AUTONAV);
 }
 
@@ -195,13 +215,11 @@ static void player_autonav (void)
          jp    = &cur_system->jumps[ player.p->nav_hyperspace ];
          ret   = player_autonavBrake();
          /* Try to jump or see if braked. */
-         if (space_canHyperspace(player.p)) {
+         if (ret) {
+            if (space_canHyperspace(player.p))
+               player_jump();
             player.autonav = AUTONAV_JUMP_APPROACH;
-            player_accelOver();
-            player_jump();
          }
-         else if (ret)
-            player.autonav = AUTONAV_JUMP_APPROACH;
 
          /* See if should ramp down. */
          if (!tc_rampdown && (map_npath<=1)) {
@@ -209,7 +227,7 @@ static void player_autonav (void)
             tc_down     = (tc_mod-1.) / 3.;
          }
          break;
-   
+
       case AUTONAV_POS_APPROACH:
          ret = player_autonavApproach( &player.autonav_pos, &d, 1 );
          if (ret) {
@@ -261,7 +279,7 @@ static int player_autonavApproach( Vector2d *pos, double *dist2, int count_targe
       0.5*(player.p->thrust/player.p->solid->mass)*time*time;
 
    /* Output distance^2 */
-   d        = vect_dist( pos, &player.p->solid->pos ) ;
+   d        = vect_dist( pos, &player.p->solid->pos );
    dist     = d - dist;
    if (count_target)
       *dist2   = dist;
@@ -302,18 +320,56 @@ static int player_autonavBrake (void)
    return 0;
 }
 
+/**
+ * @brief Checks whether the player should abort autonav due to damage or missile locks.
+ *
+ *    @return 1 if autonav should be aborted.
+ */
+int player_shouldAbortAutonav( int damaged )
+{
+   double failpc = conf.autonav_abort * abort_mod;
+   double shield = player.p->shield / player.p->shield_max;
+   double armour = player.p->armour / player.p->armour_max;
+
+   if (!player_isFlag(PLAYER_AUTONAV))
+      return 0;
+
+   if (failpc >= 1. && !slockons && player.p->lockons > 0)
+      player_autonavAbort("Missile Lockon Detected");
+   else if (failpc >= 1. && (shield < 1. && shield < lasts) && damaged)
+      player_autonavAbort("Sustaining damage");
+   else if (failpc > 0. && (shield < failpc && shield < lasts) && damaged)
+      player_autonavAbort("Shield below damage threshold");
+   else if (armour < lasta && damaged)
+      player_autonavAbort("Sustaining armour damage");
+
+   lasts = player.p->shield / player.p->shield_max;
+   lasta = player.p->armour / player.p->armour_max;
+
+   if (!player_isFlag(PLAYER_AUTONAV)) {
+      if (player.autonav_timer > 0.)
+         abort_mod = MIN( MAX( 0., abort_mod - .25 ), (int)(shield * 4) * .25 );
+      else
+         abort_mod = MIN( 0.75, (int)(shield * 4) * .25 );
+      player.autonav_timer = 30.;
+      return 1;
+   }
+   return 0;
+}
+
 
 /**
  * @brief Handles autonav thinking.
  *
  *    @param pplayer Player doing the thinking.
  */
-void player_thinkAutonav( Pilot *pplayer )
+void player_thinkAutonav( Pilot *pplayer, double dt )
 {
-   /* Abort if lockons detected. */
-   if (pplayer->lockons > 0)
-      player_autonavAbort("Missile Lockon Detected");
-   else if ((player.autonav == AUTONAV_JUMP_APPROACH) ||
+   if (player.autonav_timer > 0.)
+      player.autonav_timer -= dt;
+   if (player_shouldAbortAutonav(0))
+      return;
+   if ((player.autonav == AUTONAV_JUMP_APPROACH) ||
          (player.autonav == AUTONAV_JUMP_BRAKE)) {
       /* If we're already at the target. */
       if (player.p->nav_hyperspace == -1)
@@ -354,15 +410,12 @@ void player_updateAutonav( double dt )
    }
 
    /* We'll update the time compression here. */
-   if (tc_mod == tc_max)
+   if (tc_mod == player.tc_max)
       return;
    else
-      tc_mod += 0.2 * dt * (tc_max-1.);
-   /* Avoid going over. */ 
-   if (tc_mod > tc_max)
-      tc_mod = tc_max;
+      tc_mod += 0.2 * dt * (player.tc_max-1.);
+   /* Avoid going over. */
+   if (tc_mod > player.tc_max)
+      tc_mod = player.tc_max;
    pause_setSpeed( tc_mod );
 }
-
-
-

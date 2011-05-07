@@ -52,6 +52,7 @@ void sound_mix_stop( alVoice *v );
 void sound_mix_pause (void);
 void sound_mix_resume (void);
 void sound_mix_setSpeed( double s );
+void sound_mix_setSpeedVolume( double vol );
 
 
 /*
@@ -68,6 +69,8 @@ int sound_mix_playGroup( int group, alSound *s, int once );
 void sound_mix_stopGroup( int group );
 void sound_mix_pauseGroup( int group );
 void sound_mix_resumeGroup( int group );
+void sound_mix_speedGroup( int group, int enable );
+void sound_mix_volumeGroup( int group, double volume );
 
 
 /*

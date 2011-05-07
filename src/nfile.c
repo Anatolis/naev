@@ -69,7 +69,7 @@ char* nfile_basePath (void)
       }
       snprintf( naev_base, PATH_MAX, "%s/naev/", home );
 #else
-#error "Feature needs implementation on this Operating System for NAEV to work."
+#error "Feature needs implementation on this Operating System for Naev to work."
 #endif
    }
 
@@ -157,7 +157,7 @@ int nfile_dirMakeExist( const char* path, ... )
       closedir(d);
    }
 #else
-#error "Feature needs implementation on this Operating System for NAEV to work."
+#error "Feature needs implementation on this Operating System for Naev to work."
 #endif
 
    return 0;
@@ -192,7 +192,7 @@ int nfile_fileExists( const char* path, ... )
       return 1;
    }
    */
-   
+
    return 0;
 }
 
@@ -427,13 +427,14 @@ char* nfile_readFile( int* filesize, const char* path, ... )
    }
 
    /* Allocate buffer. */
-   buf = malloc( len );
+   buf = malloc( len+1 );
    if (buf == NULL) {
       WARN("Out of Memory!");
       fclose(file);
       *filesize = 0;
       return NULL;
    }
+   buf[len] = '\0';
 
    /* Read the file. */
    n = 0;

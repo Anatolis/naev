@@ -12,6 +12,9 @@
 #include "nlua_pilot.h"
 
 
+#define HOOK_MAX_PARAM  3 /**< Maximum hook params, to avoid dynamic allocation. */
+
+
 /**
  * @Brief The hook parameter types.
  */
@@ -19,6 +22,7 @@ typedef enum HookParamType_e {
    HOOK_PARAM_NIL, /**< No hook parameter. */
    HOOK_PARAM_NUMBER, /**< Number parameter. */
    HOOK_PARAM_STRING, /**< String parameter. */
+   HOOK_PARAM_BOOL, /**< Boolean parameter. */
    HOOK_PARAM_PILOT, /**< Pilot hook parameter. */
    HOOK_PARAM_SENTINAL /**< Enum sentinal. */
 } HookParamType;
@@ -30,17 +34,23 @@ typedef struct HookParam_s {
    HookParamType type; /**< Type of parameter. */
    union {
       double num; /**< Number parameter. */
-      char *str; /**< String parameter. */
+      const char *str; /**< String parameter. */
+      int b; /**< Boolean parameter. */
       LuaPilot lp; /**< Hook parameter pilot data. */
    } u; /**< Hook parameter data. */
 } HookParam;
 
+/*
+ * Exclusion.
+ */
+void hook_exclusionStart (void);
+void hook_exclusionEnd( double dt );
 
 /* add/run hooks */
 unsigned int hook_addMisn( unsigned int parent, const char *func, const char *stack );
 unsigned int hook_addEvent( unsigned int parent, const char *func, const char *stack );
 unsigned int hook_addFunc( int (*func)(void*), void* data, const char *stack );
-int hook_rm( unsigned int id );
+void hook_rm( unsigned int id );
 void hook_rmMisnParent( unsigned int parent );
 void hook_rmEventParent( unsigned int parent );
 int hook_hasMisnParent( unsigned int parent );
@@ -54,12 +64,14 @@ int pilot_runHookParam( Pilot* p, int hook_type, HookParam *param, int nparam );
  *
  * Currently used:
  *  - General
+ *    - "safe" - Runs once each frame at a same time (last in the frame), good place to do breaking stuff.
  *    - "takeoff" - When taking off
  *    - "jumpin" - When player jumps (after changing system)
  *    - "jumpout" - When player jumps (before changing system)
  *    - "time" - When time is increment drastically (hyperspace and taking off)
  *    - "hail" - When any pilot is hailed
- *    - "board" - WHen any pilot is boarded
+ *    - "board" - When any pilot is boarded
+ *    - "input" - When an input command is pressed
  *  - Landing
  *    - "land" - When landed
  *    - "outfits" - When visited outfitter

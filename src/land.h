@@ -41,12 +41,14 @@ extern Planet* land_planet;
 /*
  * Main interface.
  */
+void land_queueTakeoff (void);
 int land_doneLoading (void);
 void land( Planet* p, int load );
 void land_genWindows( int load, int changetab );
 void takeoff( int delay );
 void land_cleanup (void);
 void land_exit (void);
+int land_setWindow( int window );
 
 
 /*
@@ -55,6 +57,7 @@ void land_exit (void);
 void land_checkAddRefuel (void);
 void land_buttonTakeoff( unsigned int wid, char *unused );
 unsigned int land_getWid( int window );
+void bar_regen (void);
 
 /*
  * Error dialogue generation and associated sanity checks.

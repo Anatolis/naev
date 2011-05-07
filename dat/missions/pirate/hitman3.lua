@@ -53,7 +53,7 @@ function create ()
    near_sys = get_emp_system( system.cur() )
 
    -- Spaceport bar stuff
-   misn.setNPC( "Young Businessman",  "none")
+   misn.setNPC( "Young Businessman", "youngbusinessman")
    misn.setDesc( bar_desc )
 
    --some other stuff
@@ -145,6 +145,7 @@ function landed ()
    
    -- Give landing pass   
    player.addOutfit("Pirate Landing Pass")
+   player.pay( 100000 ) -- 100k
    var.push("pir_cargo", true)
 
    -- Finish mission

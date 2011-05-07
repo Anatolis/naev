@@ -19,6 +19,7 @@
 #include "log.h"
 #include "player.h"
 #include "space.h"
+#include "gui.h"
 
 
 /**
@@ -67,7 +68,7 @@ int pilot_getMount( const Pilot *p, const PilotOutfitSlot *w, Vector2d *v )
 
 
 /**
- * @brief Docks the pilot on it's target pilot.
+ * @brief Docks the pilot on its target pilot.
  *
  *    @param p Pilot that wants to dock.
  *    @param target Pilot to dock on.
@@ -822,6 +823,9 @@ void pilot_calcStats( Pilot* pilot )
             if (os->firerate_turret > 0.) /* Only modulate bonuses. */
                nfirerate_turret     += q;
          }
+         /* Misc. */
+         s->nebula_dmg_shield += os->nebula_dmg_shield * q;
+         s->nebula_dmg_armour += os->nebula_dmg_armour * q;
       }
       else if (outfit_isAfterburner(o)) /* Afterburner */
          pilot->afterburner = pilot->outfits[i]; /* Set afterburner */
@@ -889,6 +893,9 @@ void pilot_calcStats( Pilot* pilot )
    if (nfirerate_turret > 0)
       s->firerate_turret  *= exp( -0.15 * (double)(MAX(nfirerate_turret-1,0)) );
    s->firerate_turret  += 1.;
+   /* Misc. */
+   s->nebula_dmg_shield = s->nebula_dmg_shield/100. + 1.;
+   s->nebula_dmg_armour = s->nebula_dmg_armour/100. + 1.;
 
    /*
     * Calculate jammers.
@@ -926,6 +933,9 @@ void pilot_calcStats( Pilot* pilot )
 
    /* Modulate by mass. */
    pilot_updateMass( pilot );
+
+   /* Update GUI as necessary. */
+   gui_setGeneric( pilot );
 }
 
 

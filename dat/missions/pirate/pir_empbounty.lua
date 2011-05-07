@@ -53,7 +53,7 @@ function create ()
    near_sys = get_emp_system( system.cur() )
 
    -- Get credits
-   credits  = rnd.rnd(2,4) * 10000
+   credits  = rnd.rnd(2,4) * 100000
 
    -- Spaceport bar stuff
    misn.setNPC( "Pirate Lord", pir_getLordRandomPortrait() )
@@ -82,6 +82,7 @@ function accept ()
 
    -- Set hooks
    hook.enter("sys_enter")
+   last_sys = system.cur()
 end
 
 -- Gets a empireish system
@@ -137,16 +138,33 @@ function sys_enter ()
    -- Check to see if reaching target system
    if cur_sys == near_sys then
 
+      -- Choose position
+      local pos
+      if cur_sys == last_sys then
+         pos = player.pilot():pos()
+      else
+         pos = cur_sys:jumpPos( last_sys )
+      end
+      local x,y = pos:get()
+      local d = rnd.rnd( 1500, 2500 )
+      local a = math.atan2( y, x ) + math.pi
+      local offset = vec2.new()
+      offset:setP( d, a )
+      pos = pos + offset
+
       -- Create the badass enemy
-      p     = pilot.add(emp_ship)
+      p     = pilot.add(emp_ship, nil, pos)
       emp   = p[1]
       emp:rename(emp_name)
       emp:setHostile()
+      emp:setVisplayer(true)
+      emp:setHilight(true)
       emp:rmOutfit("all") -- Start naked
       pilot_outfitAddSet( emp, emp_outfits )
       hook.pilot( emp, "death", "emp_dead" )
       hook.pilot( emp, "jump", "emp_jump" )
    end
+   last_sys = cur_sys
 end
 
 

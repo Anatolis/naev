@@ -42,6 +42,7 @@
 #include "equipment.h"
 #include "npc.h"
 #include "camera.h"
+#include "menu.h"
 
 
 /* global/main window */
@@ -70,6 +71,7 @@ static unsigned int land_visited = 0; /**< Contains what the player visited. */
  * land variables
  */
 int landed = 0; /**< Is player landed. */
+static int land_takeoff = 0; /**< Takeoff. */
 static int land_loaded = 0; /**< Finished loading? */
 static unsigned int land_wid = 0; /**< Land window ID. */
 static int land_regen = 0; /**< Whether or not regenning. */
@@ -142,9 +144,18 @@ static void misn_accept( unsigned int wid, char* str );
 static void misn_genList( unsigned int wid, int first );
 static void misn_update( unsigned int wid, char* str );
 /* refuel */
-static unsigned int refuel_price (void);
+static credits_t refuel_price (void);
 static void spaceport_refuel( unsigned int wid, char *str );
 static void land_toggleRefuel( unsigned int wid, char *name );
+
+
+/**
+ * @brief Queue a takeoff.
+ */
+void land_queueTakeoff (void)
+{
+   land_takeoff = 1;
+}
 
 
 /**
@@ -244,7 +255,7 @@ static void commodity_update( unsigned int wid, char* str )
    /* modify text */
    snprintf( buf, PATH_MAX,
          "%d Tons\n"
-         "%d Credits/Ton\n"
+         "%"CREDITS_PRI" Credits/Ton\n"
          "\n"
          "%d Tons\n",
          pilot_cargoOwned( player.p, comname ),
@@ -263,17 +274,19 @@ static void commodity_buy( unsigned int wid, char* str )
    (void)str;
    char *comname;
    Commodity *com;
-   unsigned int q, price;
+   unsigned int q;
+   credits_t price;
    HookParam hparam[3];
 
    /* Get selected. */
-   q = commodity_getMod();
+   q     = commodity_getMod();
    comname = toolkit_getList( wid, "lstGoods" );
-   com = commodity_get( comname );
+   com   = commodity_get( comname );
    price = planet_commodityPrice( land_planet, com );
+   price *= q;
 
    /* Check stuff. */
-   if (!player_hasCredits( q * price )) {
+   if (!player_hasCredits( price )) {
       dialogue_alert( "Insufficient credits!" );
       return;
    }
@@ -284,7 +297,7 @@ static void commodity_buy( unsigned int wid, char* str )
 
    /* Make the buy. */
    q = pilot_cargoAdd( player.p, com, q );
-   player_modCredits( -q * price );
+   player_modCredits( -price );
    land_checkAddRefuel();
    commodity_update(wid, NULL);
 
@@ -295,6 +308,8 @@ static void commodity_buy( unsigned int wid, char* str )
    hparam[1].u.num   = q;
    hparam[2].type    = HOOK_PARAM_SENTINAL;
    hooks_runParam( "comm_buy", hparam );
+   if (land_takeoff)
+      takeoff(1);
 }
 /**
  * @brief Attempts to sell a commodity.
@@ -306,18 +321,20 @@ static void commodity_sell( unsigned int wid, char* str )
    (void)str;
    char *comname;
    Commodity *com;
-   unsigned int q, price;
+   unsigned int q;
+   credits_t price;
    HookParam hparam[3];
 
    /* Get parameters. */
-   q = commodity_getMod();
+   q     = commodity_getMod();
    comname = toolkit_getList( wid, "lstGoods" );
-   com = commodity_get( comname );
+   com   = commodity_get( comname );
    price = planet_commodityPrice( land_planet, com );
 
    /* Remove commodity. */
    q = pilot_cargoRm( player.p, com, q );
-   player_modCredits( q * price );
+   price = price * (credits_t)q;
+   player_modCredits( price );
    land_checkAddRefuel();
    commodity_update(wid, NULL);
 
@@ -328,6 +345,8 @@ static void commodity_sell( unsigned int wid, char* str )
    hparam[1].u.num   = q;
    hparam[2].type    = HOOK_PARAM_SENTINAL;
    hooks_runParam( "comm_sell", hparam );
+   if (land_takeoff)
+      takeoff(1);
 }
 
 /**
@@ -565,6 +584,15 @@ static int bar_genList( unsigned int wid )
    return 0;
 }
 /**
+ * @brief Regenerates the bar list.
+ */
+void bar_regen (void)
+{
+   if (!landed)
+      return;
+   bar_genList( land_getWid(LAND_WINDOW_BAR) );
+}
+/**
  * @brief Updates the missions in the spaceport bar.
  *    @param wid Window to update the outfits in.
  *    @param str Unused.
@@ -677,10 +705,8 @@ static void bar_approach( unsigned int wid, char *str )
    mission_sysMark();
 
    /* Mission forced take off. */
-   if (landed == 0) {
-      landed = 1; /* ugly hack to make takeoff not complain. */
+   if (land_takeoff)
       takeoff(0);
-   }
 }
 /**
  * @brief Loads the news.
@@ -890,9 +916,9 @@ static void misn_update( unsigned int wid, char* str )
  * @brief Gets how much it will cost to refuel the player.
  *    @return Refuel price.
  */
-static unsigned int refuel_price (void)
+static credits_t refuel_price (void)
 {
-   return (unsigned int)((player.p->fuel_max - player.p->fuel)*3);
+   return (credits_t)((player.p->fuel_max - player.p->fuel)*3);
 }
 
 
@@ -904,7 +930,7 @@ static unsigned int refuel_price (void)
 static void spaceport_refuel( unsigned int wid, char *str )
 {
    (void)str;
-   unsigned int price;
+   credits_t price;
 
    price = refuel_price();
 
@@ -1198,6 +1224,21 @@ void land_genWindows( int load, int changetab )
 
 
 /**
+ * @brief Sets the land window tab.
+ *
+ *    @param Tab to set like LAND_WINDOW_COMMODITY.
+ *    @return 0 on success.
+ */
+int land_setWindow( int window )
+{
+   if (land_windowsMap[ window ] < 0)
+      return -1;
+   window_tabWinSetActive( land_wid, "tabLand", land_windowsMap[window] );
+   return 0;
+}
+
+
+/**
  * @brief Opens up all the land dialogue stuff.
  *    @param p Planet to open stuff for.
  *    @param load Whether or not loading the game.
@@ -1209,7 +1250,7 @@ void land( Planet* p, int load )
       return;
 
    /* Stop player sounds. */
-   player_stopSound();
+   player_soundStop();
 
    /* Load stuff */
    land_planet = p;
@@ -1226,10 +1267,8 @@ void land( Planet* p, int load )
    land_genWindows( load, 0 );
 
    /* Mission forced take off. */
-   if (landed == 0) {
-      landed = 1; /* ugly hack to make takeoff not complain. */
+   if (land_takeoff)
       takeoff(0);
-   }
 }
 
 
@@ -1372,14 +1411,18 @@ static void land_changeTab( unsigned int wid, char *wgt, int tab )
       }
    }
 
-   /* Check land missions. */
-   if ((to_visit != 0) && !has_visited(to_visit)) {
+   /* Check land missions - aways run hooks. */
+   /*if ((to_visit != 0) && !has_visited(to_visit)) {*/
+   {
       /* Run hooks, run after music in case hook wants to change music. */
       if (torun_hook != NULL)
          if (hooks_run( torun_hook ) > 0)
             bar_genList( land_getWid(LAND_WINDOW_BAR) );
 
       visited(to_visit);
+
+      if (land_takeoff)
+         takeoff(1);
    }
 }
 
@@ -1397,6 +1440,9 @@ void takeoff( int delay )
 
    if (!landed)
       return;
+
+   /* Clear queued takeoff. */
+   land_takeoff = 0;
 
    /* Refuel if needed. */
    land_checkAddRefuel();
@@ -1448,9 +1494,15 @@ void takeoff( int delay )
    land_cleanup(); /* Cleanup stuff */
    hooks_run("takeoff"); /* Must be run after cleanup since we don't want the
                             missions to think we are landed. */
+   if (menu_isOpen(MENU_MAIN))
+      return;
    player_addEscorts();
    hooks_run("enter");
+   if (menu_isOpen(MENU_MAIN))
+      return;
    events_trigger( EVENT_TRIGGER_ENTER );
+   if (menu_isOpen(MENU_MAIN))
+      return;
    player.p->ptimer = PILOT_TAKEOFF_DELAY;
    pilot_setFlag( player.p, PILOT_TAKEOFF );
    pilot_setThrust( player.p, 0. );

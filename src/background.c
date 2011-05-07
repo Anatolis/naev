@@ -465,7 +465,7 @@ int background_init (void)
  */
 int background_load( const char *name )
 {
-   int ret;
+   int ret, errf;
    lua_State *L;
    const char *err;
 
@@ -484,18 +484,27 @@ int background_load( const char *name )
    if (L == NULL)
       return -1;
 
+#if DEBUGGING
+   lua_pushcfunction(L, nlua_errTrace);
+   errf = -2;
+#else /* DEBUGGING */
+   errf = 0;
+#endif /* DEBUGGING */
+
    /* Run Lua. */
    ret = 0;
    lua_getglobal(L,"background");
-   ret = lua_pcall(L, 0, 0, 0);
+   ret = lua_pcall(L, 0, 0, errf);
    if (ret != 0) { /* error has occured */
       err = (lua_isstring(L,-1)) ? lua_tostring(L,-1) : NULL;
       WARN("Background -> 'background' : %s",
             (err) ? err : "unknown error");
       lua_pop(L, 1);
-      ret = -1;
    }
-   return 0;
+#if DEBUGGING
+   lua_pop(L, 1);
+#endif /* DEBUGGING */
+   return ret;
 }
 
 
@@ -585,6 +594,16 @@ void background_free (void)
          lua_close( bkg_def_L );
       bkg_cur_L = NULL;
       bkg_def_L = NULL;
+   }
+
+   /* Destroy VBOs. */
+   if (star_vertexVBO != NULL) {
+      gl_vboDestroy( star_vertexVBO );
+      star_vertexVBO = NULL;
+   }
+   if (star_colourVBO != NULL) {
+      gl_vboDestroy( star_colourVBO );
+      star_colourVBO = NULL;
    }
 
    /* Free the stars. */

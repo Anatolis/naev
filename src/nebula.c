@@ -14,7 +14,6 @@
 
 #include <errno.h>
 
-#include "SDL_image.h"
 
 #include "log.h"
 #include "opengl.h"
@@ -353,7 +352,7 @@ static void nebu_renderMultitexture( const double dt )
    if (!paused) {
       spfx_getShake( &sx, &sy );
       gl_matrixPush();
-         gl_matrixTranslate( sx, sy );
+         gl_matrixTranslate( -sx, -sy );
    }
 
    /* Now render! */

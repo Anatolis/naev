@@ -26,6 +26,7 @@
 #include "dialogue.h"
 #include "conf.h"
 #include "ndata.h"
+#include "player.h"
 
 
 #define BUTTON_WIDTH    90 /**< Button width, standard across menus. */
@@ -56,7 +57,7 @@ static int opt_restart = 0;
 extern const char *keybind_info[][3]; /**< from input.c */
 
 
-static char opt_selectedKeybind[32]; /**< Selected keybinding. */
+static const char *opt_selectedKeybind; /**< Selected keybinding. */
 static int opt_lastKeyPress = 0; /**< Last keypress. */
 
 
@@ -68,6 +69,8 @@ static void opt_close( unsigned int wid, char *name );
 static void opt_needRestart (void);
 /* Gameplay. */
 static void opt_gameplay( unsigned int wid );
+static void opt_getAutonavAbortStr( char *buf, int max );
+static void opt_setAutonavAbort( unsigned int wid, char *str );
 static void opt_gameplaySave( unsigned int wid, char *str );
 static void opt_gameplayDefaults( unsigned int wid, char *str );
 static void opt_gameplayUpdate( unsigned int wid, char *str );
@@ -82,8 +85,9 @@ static void opt_audio( unsigned int wid );
 static void opt_audioSave( unsigned int wid, char *str );
 static void opt_audioDefaults( unsigned int wid, char *str );
 static void opt_audioUpdate( unsigned int wid, char *str );
-static void opt_setSFXLevel( unsigned int wid, char *str );
-static void opt_setMusicLevel( unsigned int wid, char *str );
+static void opt_audioLevelStr( char *buf, int max, int type, double pos );
+static void opt_setAudioLevel( unsigned int wid, char *str );
+static void opt_beep( unsigned int wid, char *str );
 /* Keybind menu. */
 static void opt_keybinds( unsigned int wid );
 static void menuKeybinds_getDim( unsigned int wid, int *w, int *h,
@@ -179,7 +183,7 @@ static void opt_gameplay( unsigned int wid )
       snprintf( buf, sizeof(buf), "ndata: %s", path);
    window_addText( wid, x, y, cw, 20, 1, "txtNdata",
          NULL, NULL, buf );
-   y -= 50;
+   y -= 40;
    by = y;
 
 
@@ -217,6 +221,9 @@ static void opt_gameplay( unsigned int wid )
 #ifdef USE_SDLMIX
          "With SDL_mixer\n"
 #endif
+#ifdef HAVE_LUAJIT
+         "Using Lua JIT\n"
+#endif
 #ifdef NDATA_DEF
          "ndata: "NDATA_DEF"\n"
 #endif /* NDATA_DEF */
@@ -229,28 +236,53 @@ static void opt_gameplay( unsigned int wid )
    /* Options. */
    y  = by;
    x += cw;
-   window_addText( wid, x+20, y, cw, 20, 0, "txtSettings",
-         NULL, &cDConsole, "Settings" );
-   y -= 30;
-   window_addCheckbox( wid, x, y, cw, 20,
-         "chkZoomManual", "Enable manual zoom control", NULL, conf.zoom_manual );
-   y -= 30;
-   window_addCheckbox( wid, x, y, cw, 20,
-         "chkAfterburn", "Enable doubletap afterburn", NULL, conf.afterburn_sens );
-   y -= 30;
-   window_addCheckbox( wid, x, y, cw, 20,
-         "chkCompress", "Enable savegame compression", NULL, conf.save_compress );
-   y -= 50;
-   s = "Visible messages";
-   l = gl_printWidthRaw( NULL, s );
-   window_addText( wid, x, y, l, 20, 1, "txtSMSG",
-         NULL, &cBlack, s );
-   window_addInput( wid, x+l+20, y, 40, 20, "inpMSG", 4, 1, NULL );
+
+   /* Autonav abort. */
+   x = 20 + cw + 20;
+   window_addText( wid, x+65, y, 150, 150, 0, "txtAAutonav",
+         NULL, &cDConsole, "Abort Autonav At:" );
    y -= 20;
 
+   /* Autonav abort fader. */
+   opt_getAutonavAbortStr( buf, sizeof(buf) );
+   window_addText( wid, x, y, cw, 20, 1, "txtAutonav",
+         NULL, NULL, buf );
+   y -= 20;
+   window_addFader( wid, x, y, cw, 20, "fadAutonav", 0., 1.,
+         conf.autonav_abort, opt_setAutonavAbort );
+   y -= 40;
+
+   window_addText( wid, x+20, y, cw, 20, 0, "txtSettings",
+         NULL, &cDConsole, "Settings" );
+   y -= 25;
+   window_addCheckbox( wid, x, y, cw, 20,
+         "chkZoomManual", "Enable manual zoom control", NULL, conf.zoom_manual );
+   y -= 25;
+   window_addCheckbox( wid, x, y, cw, 20,
+         "chkAfterburn", "Enable double-tap afterburn", NULL, conf.afterburn_sens );
+   y -= 25;
+   window_addCheckbox( wid, x, y, cw, 20,
+         "chkMouseThrust", "Enable mouse-flying thrust control", NULL, conf.mouse_thrust );
+   y -= 25;
+   window_addCheckbox( wid, x, y, cw, 20,
+         "chkCompress", "Enable savegame compression", NULL, conf.save_compress );
+   y -= 30;
+   s = "Visible Messages";
+   l = gl_printWidthRaw( NULL, s );
+   window_addText( wid, -100, y, l, 20, 1, "txtSMSG",
+         NULL, &cBlack, s );
+   window_addInput( wid, -50, y, 40, 20, "inpMSG", 4, 1, NULL );
+   y -= 30;
+   s = "Max Time Compression Factor";
+   l = gl_printWidthRaw( NULL, s );
+   window_addText( wid, -100, y, l, 20, 1, "txtTMax",
+         NULL, &cBlack, s );
+   window_addInput( wid, -50, y, 40, 20, "inpTMax", 4, 1, NULL );
+   y -= 30;
+
    /* Restart text. */
-   window_addText( wid, -20, 20+BUTTON_HEIGHT+20, 3*(BUTTON_WIDTH + 20),
-         30, 1, "txtRestart", &gl_smallFont, &cBlack, NULL );
+   window_addText( wid, 20, 10, 3*(BUTTON_WIDTH + 20),
+         30, 0, "txtRestart", &gl_smallFont, &cBlack, NULL );
 
    /* Update. */
    opt_gameplayUpdate( wid, NULL );
@@ -263,7 +295,7 @@ static void opt_gameplaySave( unsigned int wid, char *str )
 {
    (void) str;
    int f;
-   char *inp;
+   char *vmsg, *tmax;
 
    /* Checkboxes. */
    f = window_checkboxState( wid, "chkAfterburn" );
@@ -271,11 +303,14 @@ static void opt_gameplaySave( unsigned int wid, char *str )
       conf.afterburn_sens = (!!f)*250;
    }
    conf.zoom_manual = window_checkboxState( wid, "chkZoomManual" );
+   conf.mouse_thrust = window_checkboxState(wid, "chkMouseThrust" );
    conf.save_compress = window_checkboxState( wid, "chkCompress" );
 
    /* Input boxes. */
-   inp = window_getInput( wid, "inpMSG" );
-   conf.mesg_visible = atoi(inp);
+   vmsg = window_getInput( wid, "inpMSG" );
+   tmax = window_getInput( wid, "inpTMax" );
+   conf.mesg_visible = atoi(vmsg);
+   conf.compression_mult = atoi(tmax);
    if (conf.mesg_visible == 0)
       conf.mesg_visible = 5;
 }
@@ -305,16 +340,57 @@ static void opt_gameplayDefaults( unsigned int wid, char *str )
 static void opt_gameplayUpdate( unsigned int wid, char *str )
 {
    (void) str;
-   char buf[16];
+   char vmsg[16], tmax[16];
 
    /* Checkboxes. */
    window_checkboxSet( wid, "chkZoomManual", conf.zoom_manual );
    window_checkboxSet( wid, "chkAfterburn", conf.afterburn_sens );
+   window_checkboxSet( wid, "chkMouseThrust", conf.mouse_thrust );
    window_checkboxSet( wid, "chkCompress", conf.save_compress );
 
    /* Input boxes. */
-   snprintf( buf, sizeof(buf), "%d", conf.mesg_visible );
-   window_setInput( wid, "inpMSG", buf );
+   snprintf( vmsg, sizeof(vmsg), "%d", conf.mesg_visible );
+   window_setInput( wid, "inpMSG", vmsg );
+   snprintf( tmax, sizeof(tmax), "%g", conf.compression_mult );
+   window_setInput( wid, "inpTMax", tmax );
+}
+
+
+/**
+ * @brief Sets the autonav abort string based on the current abort_autonav value.
+ *
+ *    @param[out] buf Buffer to use.
+ *    @param max Maximum length of the buffer.
+ */
+static void opt_getAutonavAbortStr( char *buf, int max )
+{
+   /* Generate message. */
+   if (conf.autonav_abort >= 1.)
+      snprintf( buf, max, "Missile Lock" );
+   else if (conf.autonav_abort > 0.)
+      snprintf( buf, max, "%.0f%% Shield", conf.autonav_abort * 100 );
+   else
+      snprintf( buf, max, "Armour Damage" );
+}
+
+
+/**
+ * @brief Callback to set autonav abort threshold.
+ *
+ *    @param wid Window calling the callback.
+ *    @param str Name of the widget calling the callback.
+ */
+static void opt_setAutonavAbort( unsigned int wid, char *str )
+{
+   char buf[PATH_MAX];
+   double autonav_abort;
+
+   /* Set fader. */
+   autonav_abort = window_getFaderValue(wid, str);
+   conf.autonav_abort = autonav_abort;
+
+   opt_getAutonavAbortStr( buf, sizeof(buf) );
+   window_modifyText( wid, "txtAutonav", buf );
 }
 
 
@@ -464,6 +540,7 @@ static void menuKeybinds_update( unsigned int wid, char *name )
 
    /* Remove the excess. */
    keybind = keybind_info[selected][0];
+   opt_selectedKeybind = keybind;
    window_modifyText( wid, "txtName", keybind );
 
    /* Get information. */
@@ -529,44 +606,57 @@ static void opt_keyDefaults( unsigned int wid, char *str )
 
 
 /**
- * @brief Callback to set the sound level.
+ * @brief Callback to set the sound or music level.
  *
  *    @param wid Window calling the callback.
  *    @param str Name of the widget calling the callback.
+ *    @param type 0 for sound, 1 for audio.
  */
-static void opt_setSFXLevel( unsigned int wid, char *str )
+static void opt_setAudioLevel( unsigned int wid, char *str )
 {
-   char buf[32];
-	double vol;
+   char buf[32], *widget;
+   double vol;
 
-   /* Set fader. */
    vol = window_getFaderValue(wid, str);
-	sound_volume(vol);
+   if (strcmp(str,"fadSound")==0) {
+      sound_volume(vol);
+      widget = "txtSound";
+      opt_audioLevelStr( buf, sizeof(buf), 0, vol );
+   }
+   else {
+      music_volume(vol);
+      widget = "txtMusic";
+      opt_audioLevelStr( buf, sizeof(buf), 1, vol );
+   }
 
-   /* Update message. */
-   snprintf( buf, sizeof(buf), "Sound Volume: %.2f", sound_getVolume() );
-   window_modifyText( wid, "txtSound", buf );
+   window_modifyText( wid, widget, buf );
 }
 
 
 /**
- * @brief Callback to set the music level.
+ * @brief Sets the sound or music volume string based on level and sound backend.
  *
- *    @param wid Window calling the callback.
- *    @param str Name of the widget calling the callback.
+ *    @param[out] buf Buffer to use.
+ *    @param max Maximum length of the buffer.
+ *    @param type 0 for sound, 1 for audio.
+ *    @param pos Position of the fader calling the function.
  */
-static void opt_setMusicLevel( unsigned int wid, char *str )
+static void opt_audioLevelStr( char *buf, int max, int type, double pos )
 {
-   char buf[32];
-   double vol;
+   double vol, magic;
+   char *str;
 
-   /* Update fader. */
-   vol = window_getFaderValue(wid, str);
-	music_volume(vol);
+   str = type ? "Music" : "Sound";
+   vol = type ? music_getVolumeLog() : sound_getVolumeLog();
 
-   /* Update message. */
-   snprintf( buf, sizeof(buf), "Music Volume: %.2f", music_getVolume() );
-   window_modifyText( wid, "txtMusic", buf );
+   if (vol == 0.)
+      snprintf( buf, max, "%s Volume: Muted", str );
+   else if (strcmp(conf.sound_backend,"openal")==0) {
+      magic = -48. / log(0.00390625); /* -48 dB minimum divided by logarithm of volume floor. */
+      snprintf( buf, max, "%s Volume: %.2f (%.0f dB)", str, pos, log(vol) * magic );
+   }
+   else if (strcmp(conf.sound_backend,"sdlmix")==0)
+      snprintf( buf, max, "%s Volume: %.2f", str, pos );
 }
 
 
@@ -618,7 +708,7 @@ static void opt_audio( unsigned int wid )
    if (strcmp(conf.sound_backend,"openal")==0)
       j = i;
    s[i++] = strdup("openal");
-#endif /* USE_PONAL */
+#endif /* USE_OPENAL */
 #if USE_SDLMIX
    if (strcmp(conf.sound_backend,"sdlmix")==0)
       j = i;
@@ -646,28 +736,37 @@ static void opt_audio( unsigned int wid )
    y -= 30;
 
    /* Sound fader. */
-   snprintf( buf, sizeof(buf), "Sound Volume: %.2f", sound_getVolume() );
+   opt_audioLevelStr( buf, sizeof(buf), 0, sound_getVolume() );
    window_addText( wid, x, y, cw, 20, 1, "txtSound",
          NULL, NULL, buf );
    y -= 20;
    window_addFader( wid, x, y, cw, 20, "fadSound", 0., 1.,
-         sound_getVolume(), opt_setSFXLevel );
+         sound_getVolume(), opt_setAudioLevel );
+   window_faderScrollDone( wid, "fadSound", opt_beep );
    y -= 40;
 
    /* Music fader. */
-   snprintf( buf, sizeof(buf), "Music Volume: %.2f", music_getVolume() );
+   opt_audioLevelStr( buf, sizeof(buf), 1, music_getVolume() );
    window_addText( wid, x, y, cw, 20, 1, "txtMusic",
          NULL, NULL, buf );
    y -= 20;
    window_addFader( wid, x, y, cw, 20, "fadMusic", 0., 1.,
-         music_getVolume(), opt_setMusicLevel );
+         music_getVolume(), opt_setAudioLevel );
    y -= 20;
 
-
    /* Restart text. */
-   window_addText( wid, -20, 20+BUTTON_HEIGHT+20, 3*(BUTTON_WIDTH + 20),
-         30, 1, "txtRestart", &gl_smallFont, &cBlack, NULL );
+   window_addText( wid, 20, 10, 3*(BUTTON_WIDTH + 20),
+         30, 0, "txtRestart", &gl_smallFont, &cBlack, NULL );
 }
+
+
+static void opt_beep( unsigned int wid, char *str )
+{
+   (void) wid;
+   (void) str;
+   player_soundPlayGUI( snd_target, 1 );
+}
+
 
 /**
  * @brief Saves the audio stuff.
@@ -707,6 +806,7 @@ static void opt_audioSave( unsigned int wid, char *str )
    }
 }
 
+
 /**
  * @brief Sets the audio defaults.
  */
@@ -731,6 +831,7 @@ static void opt_audioDefaults( unsigned int wid, char *str )
    /* Alert user it worked. */
    dialogue_msgRaw( "Defaults Restored", "Audio settings restored to defaults.");
 }
+
 
 /**
  * @brief Updates the audio widgets.
@@ -921,7 +1022,7 @@ static void opt_unsetKey( unsigned int wid, char *str )
 static void opt_video( unsigned int wid )
 {
    (void) wid;
-   int i, j;
+   int i, j, nres, res_def;
    char buf[16];
    int cw;
    int w, h, y, x, l;
@@ -964,21 +1065,23 @@ static void opt_video( unsigned int wid )
       if ((modes[i]->w == conf.width) && (modes[i]->h == conf.height))
          j = 0;
    }
-   res = malloc( sizeof(char*) * (i+j) );
+   res   = malloc( sizeof(char*) * (i+j) );
+   nres  = 0;
    if (j) {
-      res[0] = malloc(16);
+      res[0]   = malloc(16);
       snprintf( res[0], 16, "%dx%d", conf.width, conf.height );
-      j = 0;
+      res_def  = 0;
+      nres     = 1;
    }
    for (i=0; modes[i]; i++) {
-      res[i] = malloc(16);
-      snprintf( res[i], 16, "%dx%d", modes[i]->w, modes[i]->h );
+      res[ nres ] = malloc(16);
+      snprintf( res[ nres ], 16, "%dx%d", modes[i]->w, modes[i]->h );
       if ((modes[i]->w == conf.width) && (modes[i]->h == conf.height))
-         j = i;
+         res_def = i;
+      nres++;
    }
-   window_addList( wid, x, y, 140, 100, "lstRes", res, i, j, opt_videoRes );
+   window_addList( wid, x, y, 140, 100, "lstRes", res, nres, res_def, opt_videoRes );
    y -= 150;
-
 
    /* FPS stuff. */
    window_addText( wid, x+20, y, 100, 20, 0, "txtFPSTitle",
@@ -997,7 +1100,6 @@ static void opt_video( unsigned int wid )
    window_addCheckbox( wid, x, y, cw, 20,
          "chkFPS", "Show FPS", NULL, conf.fps_show );
    y -= 40;
-
 
    /* OpenGL options. */
    x = 20+cw+20;
@@ -1023,6 +1125,7 @@ static void opt_video( unsigned int wid )
    window_addText( wid, x, y, cw, 20, 1,
          "txtSCompat", NULL, &cBlack, "*Disable for compatibility." );
    y -= 40;
+
    /* Features. */
    window_addText( wid, x+20, y, 100, 20, 0, "txtSFeatures",
          NULL, &cDConsole, "Features" );
@@ -1031,10 +1134,9 @@ static void opt_video( unsigned int wid )
          "chkEngineGlow", "Engine Glow (More RAM)", NULL, conf.engineglow );
    y -= 20;
 
-
    /* Restart text. */
-   window_addText( wid, -20, 20+BUTTON_HEIGHT+20, 3*(BUTTON_WIDTH + 20),
-         30, 1, "txtRestart", &gl_smallFont, &cBlack, NULL );
+   window_addText( wid, 20, 10, 3*(BUTTON_WIDTH + 20),
+         30, 0, "txtRestart", &gl_smallFont, &cBlack, NULL );
 }
 
 /**
@@ -1046,7 +1148,7 @@ static void opt_needRestart (void)
 
    /* Values. */
    opt_restart = 1;
-   s           = "Restart Naev for changes to take effect";
+   s           = "Restart Naev for changes to take effect.";
 
    /* Modify widgets. */
    window_modifyText( opt_windows[ OPT_WIN_GAMEPLAY ], "txtRestart", s );
@@ -1199,5 +1301,3 @@ static void opt_videoUpdate( unsigned int wid, char *str )
    /* Just in case - lazy. */
    opt_needRestart();
 }
-
-

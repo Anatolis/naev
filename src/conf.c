@@ -14,7 +14,7 @@
 #include <getopt.h> /* getopt_long */
 
 #include "nlua.h"
-#include "lauxlib.h" /* luaL_dofile */
+#include <lauxlib.h> /* luaL_dofile */
 
 #include "log.h"
 #include "player.h"
@@ -101,7 +101,7 @@ static void print_usage( char **argv )
    LOG("   -N, --nondata         do not use ndata and try to use laid out files");
 #ifdef DEBUGGING
    LOG("   --devmode             enables dev mode perks like the editors");
-   LOG("   --devcsv              generates csv output from the ndata for developement purposes");
+   LOG("   --devcsv              generates csv output from the ndata for development purposes");
 #endif /* DEBUGGING */
    LOG("   -h, --help            display this message and exit");
    LOG("   -v, --version         print the version and exit");
@@ -172,7 +172,10 @@ void conf_setGameplayDefaults (void)
 {
    conf.afterburn_sens        = 250;
    conf.compression_velocity  = TIME_COMPRESSION_DEFAULT_MAX;
+   conf.compression_mult      = 200;
    conf.save_compress         = 1;
+   conf.mouse_thrust          = 1;
+   conf.autonav_abort         = 1.;
 }
 
 
@@ -192,6 +195,8 @@ void conf_setAudioDefaults (void)
 #else /* USE_OPENAL */
    conf.sound_backend = strdup("sdlmix");
 #endif /* USE_OPENAL */
+   conf.snd_voices   = 128;
+   conf.snd_pilotrel = 1;
    conf.al_efx       = 1;
    conf.al_bufsize   = 128;
    conf.nosound      = 0;
@@ -326,6 +331,9 @@ int conf_loadConfig ( const char* file )
 
       /* Sound. */
       conf_loadString("sound_backend",conf.sound_backend);
+      conf_loadInt("snd_voices",conf.snd_voices);
+      conf.snd_voices = MAX( 16, conf.snd_voices ); /* Must be at least 16. */
+      conf_loadBool("snd_pilotrel",conf.snd_pilotrel);
       conf_loadBool("al_efx",conf.al_efx);
       conf_loadInt("al_bufsize", conf.al_bufsize);
       conf_loadBool("nosound",conf.nosound);
@@ -361,8 +369,11 @@ int conf_loadConfig ( const char* file )
 
       /* Misc. */
       conf_loadFloat("compression_velocity",conf.compression_velocity);
+      conf_loadFloat("compression_mult",conf.compression_mult);
       conf_loadBool("save_compress",conf.save_compress);
       conf_loadInt("afterburn_sensitivity",conf.afterburn_sens);
+      conf_loadInt("mouse_thrust",conf.mouse_thrust);
+      conf_loadFloat("autonav_abort",conf.autonav_abort);
       conf_loadBool("conf_nosave",conf.nosave);
 
       /* Debugging. */
@@ -433,7 +444,7 @@ int conf_loadConfig ( const char* file )
                else if (strcmp(str,"jaxisneg")==0) type = KEYBIND_JAXISNEG;
                else if (strcmp(str,"jbutton")==0)  type = KEYBIND_JBUTTON;
                else {
-                  WARN("Unkown keybinding of type %s", str);
+                  WARN("Unknown keybinding of type %s", str);
                   continue;
                }
 
@@ -729,7 +740,8 @@ int conf_saveConfig ( const char* file )
    SDLMod mod;
    const char *modname;
 
-   pos = 0;
+   pos         = 0;
+   oldfooter   = NULL;
 
    /* User doesn't want to save the config. */
    if (conf.nosave)
@@ -751,9 +763,6 @@ int conf_saveConfig ( const char* file )
             /* Everything after this should also be preserved */
             oldfooter = tmp + strlen("-- "GENERATED_END_COMMENT"\n");
             oldsize -= (oldfooter - old);
-         }
-         else {
-            oldfooter = NULL;
          }
       }
       else {
@@ -856,6 +865,14 @@ int conf_saveConfig ( const char* file )
    conf_saveString("sound_backend",conf.sound_backend);
    conf_saveEmptyLine();
 
+   conf_saveComment("Maxmimum number of simultaneous sounds to play, must be at least 16.");
+   conf_saveInt("snd_voices",conf.snd_voices);
+   conf_saveEmptyLine();
+
+   conf_saveComment("Sets sound to be relative to pilot when camera is following a pilot instead of referenced to camera.");
+   conf_saveBool("snd_pilotrel",conf.snd_pilotrel);
+   conf_saveEmptyLine();
+
    conf_saveComment("Enables EFX extension for OpenAL backend.");
    conf_saveBool("al_efx",conf.al_efx);
    conf_saveEmptyLine();
@@ -926,12 +943,24 @@ int conf_saveConfig ( const char* file )
    conf_saveFloat("compression_velocity",conf.compression_velocity);
    conf_saveEmptyLine();
 
+   conf_saveComment("Sets the multiplier to compress up to when time compression is enabled.");
+   conf_saveFloat("compression_mult",conf.compression_mult);
+   conf_saveEmptyLine();
+
    conf_saveComment("Enables compression on savegames");
    conf_saveBool("save_compress",conf.save_compress);
    conf_saveEmptyLine();
 
    conf_saveComment("Afterburner sensitivity");
    conf_saveInt("afterburn_sensitivity",conf.afterburn_sens);
+   conf_saveEmptyLine();
+
+   conf_saveComment("Mouse-flying thrust control");
+   conf_saveInt("mouse_thrust",conf.mouse_thrust);
+   conf_saveEmptyLine();
+
+   conf_saveComment("Condition under which the autonav aborts.");
+   conf_saveFloat("autonav_abort",conf.autonav_abort);
    conf_saveEmptyLine();
 
    conf_saveComment("Save the config everytime game exits (rewriting this bit)");

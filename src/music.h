@@ -8,7 +8,7 @@
 #  define MUSIC_H
 
 
-#include "lua.h"
+#include <lua.h>
 
 
 extern int music_disabled;
@@ -32,6 +32,7 @@ void music_exit (void);
  */
 int music_volume( const double vol );
 double music_getVolume (void);
+double music_getVolumeLog(void);
 int music_load( const char* name );
 void music_play (void);
 void music_stop (void);

@@ -336,8 +336,8 @@ int window_exists( const char* wdwname )
    if (windows == NULL)
       return 0;
    for (w = windows; w != NULL; w = w->next)
-      if (strcmp(w->name,wdwname)==0)
-         return !window_isFlag(w, WINDOW_KILL); /* exists */
+      if ((strcmp(w->name,wdwname)==0) && !window_isFlag(w, WINDOW_KILL))
+         return 1;
    return 0; /* doesn't exist */
 }
 
@@ -354,7 +354,7 @@ unsigned int window_get( const char* wdwname )
    if (windows == NULL)
       return 0;
    for (w = windows; w != NULL; w = w->next)
-      if (strcmp(w->name,wdwname)==0)
+      if ((strcmp(w->name,wdwname)==0) && !window_isFlag(w, WINDOW_KILL))
          return w->id;
    return 0;
 }
@@ -427,8 +427,12 @@ unsigned int window_create( const char* name,
    if (windows == NULL)
       windows = wdw;
    else {
-      for (wcur = windows; wcur != NULL; wcur = wcur->next)
+      for (wcur = windows; wcur != NULL; wcur = wcur->next) {
+         if ((strcmp(wcur->name,name)==0) && !window_isFlag(wcur, WINDOW_KILL) &&
+               !window_isFlag(wcur, WINDOW_NOFOCUS))
+            WARN("Window with name '%s' already exists!",wcur->name);
          wlast = wcur;
+      }
       wlast->next = wdw;
    }
 
@@ -701,6 +705,10 @@ void window_destroy( const unsigned int wid )
 
       /* Not the window we're looking for. */
       if (wdw->id != wid)
+         continue;
+
+      /* Already being killed, skip. */
+      if (window_isFlag( wdw, WINDOW_KILL ))
          continue;
 
       /* Mark children for death. */
@@ -1130,18 +1138,18 @@ static void window_renderBorder( Window* w )
    /* Colour is shared. */
    colours[0] = c->r;
    colours[1] = c->g;
-   colours[2] = c->r;
+   colours[2] = c->b;
    colours[3] = c->a;
    for (i=0; i<7; i++) {
       colours[4 + 4*i + 0] = dc->r;
       colours[4 + 4*i + 1] = dc->g;
-      colours[4 + 4*i + 2] = dc->r;
+      colours[4 + 4*i + 2] = dc->b;
       colours[4 + 4*i + 3] = dc->a;
    }
    for (i=0; i<8; i++) {
       colours[32 + 4*i + 0] = c->r;
       colours[32 + 4*i + 1] = c->g;
-      colours[32 + 4*i + 2] = c->r;
+      colours[32 + 4*i + 2] = c->b;
       colours[32 + 4*i + 3] = c->a;
    }
    gl_vboSubData( toolkit_vbo, toolkit_vboColourOffset,
@@ -1790,11 +1798,16 @@ static void toolkit_mouseEventWidget( Window *w, Widget *wgt,
             }
          }
 
+         /* Signal scroll done if necessary. */
+         if ((wgt->status == WIDGET_STATUS_SCROLLING) && (wgt->scrolldone != NULL))
+            wgt->scrolldone( wgt );
+
          /* Always goes normal unless is below mouse. */
          if (inbounds)
             wgt->status = WIDGET_STATUS_MOUSEOVER;
-         else
+         else {
             wgt->status = WIDGET_STATUS_NORMAL;
+         }
 
          break;
    }
@@ -1894,6 +1907,7 @@ static int toolkit_keyEvent( Window *wdw, SDL_Event* event )
          break;
 
       case SDLK_RETURN:
+      case SDLK_KP_ENTER:
          if (wdw->accept_fptr != NULL) {
             wdw->accept_fptr( wdw->id, wdw->name );
             return 1;
@@ -2016,6 +2030,7 @@ void toolkit_update (void)
       toolkit_open = 0; /* disable toolkit */
       if (paused)
          unpause_game();
+      return; /*  No need to handle anything else. */
    }
 
    /* Must have a key pressed. */

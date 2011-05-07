@@ -364,10 +364,9 @@ static int iar_key( Widget* iar, SDLKey key, SDLMod mod )
  */
 static void iar_centerSelected( Widget *iar )
 {
-   int x,y;
+   int y;
    double h;
    double hmax;
-   int yscreen;
    double ypos;
 
    /* Get dimensions. */
@@ -379,8 +378,6 @@ static void iar_centerSelected( Widget *iar )
 
    /* Move if needed. */
    hmax = h * (iar->dat.iar.yelem - (int)(iar->h / h));
-   yscreen = (double)iar->h / h;
-   x = iar->dat.iar.selected % iar->dat.iar.xelem;
    y = iar->dat.iar.selected / iar->dat.iar.xelem;
    ypos = y * h;
    /* Below. */
@@ -439,7 +436,7 @@ static int iar_mmove( Widget* iar, int x, int y, int rx, int ry )
    (void) rx;
    (void) ry;
    double w,h;
-   int xelem, yelem;
+   int yelem;
    double hmax;
 
    if (iar->status == WIDGET_STATUS_SCROLLING) {
@@ -450,7 +447,6 @@ static int iar_mmove( Widget* iar, int x, int y, int rx, int ry )
       iar_getDim( iar, &w, &h );
 
       /* number of elements */
-      xelem = iar->dat.iar.xelem;
       yelem = iar->dat.iar.yelem;
 
       hmax = h * (yelem - (int)(iar->h / h));
@@ -529,7 +525,7 @@ static void iar_cleanup( Widget* iar )
 static void iar_scroll( Widget* iar, int direction )
 {
    double w,h;
-   int xelem, yelem;
+   int yelem;
    double hmax;
 
    if (iar == NULL)
@@ -539,7 +535,6 @@ static void iar_scroll( Widget* iar, int direction )
    iar_getDim( iar, &w, &h );
 
    /* number of elements */
-   xelem = iar->dat.iar.xelem;
    yelem = iar->dat.iar.yelem;
 
    /* maximum */
@@ -563,11 +558,9 @@ static void iar_scroll( Widget* iar, int direction )
 static int iar_focusImage( Widget* iar, double bx, double by )
 {
    int i,j;
-   double y, w,h, ycurs,xcurs;
-   int xelem, xspace, yelem;
-
-   /* positions */
-   y = by + iar->y;
+   double w,h, ycurs,xcurs;
+   int xelem, yelem;
+   double xspace;
 
    /* element dimensions */
    iar_getDim( iar, &w, &h );
@@ -575,7 +568,7 @@ static int iar_focusImage( Widget* iar, double bx, double by )
    /* number of elements */
    xelem = iar->dat.iar.xelem;
    yelem = iar->dat.iar.yelem;
-   xspace = (((int)iar->w - 10) % (int)w) / (xelem + 1);
+   xspace = (double)(((int)iar->w - 10) % (int)w) / (double)(xelem + 1);
    if (bx < iar->w - 10.) {
 
       /* Loop through elements until finding collision. */

@@ -122,6 +122,8 @@ static double gui_viewport_h = 0.; /**< GUI Viewport height. */
 typedef struct Radar_ {
    double w; /**< Width. */
    double h; /**< Height. */
+   double x; /**< X position. */
+   double y; /**< Y position. */
    RadarShape shape; /**< Shape */
    double res; /**< Resolution */
    glTexture *interference[INTERFERENCE_LAYERS]; /**< Interference texture. */
@@ -152,6 +154,7 @@ static double mesg_fade    = 5.; /**< Fade length. */
 typedef struct Mesg_ {
    char str[MESG_SIZE_MAX]; /**< The message. */
    double t; /**< Time to live for the message. */
+   glFontRestore restore; /**< Hack for font restoration. */
 } Mesg;
 static Mesg* mesg_stack = NULL; /**< Stack of mesages, will be of mesg_max size. */
 static int gui_mesg_w   = 0; /**< Width of messages. */
@@ -247,6 +250,7 @@ void gui_messageScrollUp( int lines )
       o += mesg_max;
    o = mesg_max - 2*conf.mesg_visible - o;
 
+
    /* Calculate max line movement. */
    if (lines > o)
       lines = o;
@@ -330,11 +334,14 @@ void player_messageRaw( const char *str )
          i = MESG_SIZE_MAX-1;
 
       /* Add the new one */
-      if (p == 0)
+      if (p == 0) {
          snprintf( mesg_stack[mesg_pointer].str, i+1, "%s", &str[p] );
+         gl_printRestoreInit( &mesg_stack[mesg_pointer].restore );
+      }
       else {
          mesg_stack[mesg_pointer].str[0] = '\t'; /* Hack to indent. */
          snprintf( &mesg_stack[mesg_pointer].str[1], i+1, "%s", &str[p] );
+         gl_printStoreMax( &mesg_stack[mesg_pointer].restore, str, p );
       }
       mesg_stack[mesg_pointer].t = mesg_timeout;
 
@@ -342,7 +349,7 @@ void player_messageRaw( const char *str )
       p += i;
       if ((str[p] == '\n') || (str[p] == ' '))
          p++; /* Skip "empty char". */
-      i  = gl_printWidthForText( NULL, &str[p], gui_mesg_w - 45. ); /* Theyr'e tabbed so it's shorter. */
+      i  = gl_printWidthForText( NULL, &str[p], gui_mesg_w - 45. ); /* They're tabbed so it's shorter. */
    }
 }
 
@@ -577,22 +584,16 @@ static void gui_borderIntersection( double *cx, double *cy, double rx, double ry
 static void gui_renderBorder( double dt )
 {
    (void) dt;
-   double z;
    int i, j;
    Pilot *plt;
    Planet *pnt;
    JumpPoint *jp;
-   glTexture *tex;
    int hw, hh;
-   int cw, ch;
-   double rx,ry, crx,cry;
+   double rx,ry;
    double cx,cy;
    glColour *col;
    double int_a;
    GLfloat vertex[5*2], colours[5*4];
-
-   /* Get zoom. */
-   z = cam_getZoom();
 
    /* Get player position. */
    hw    = SCREEN_W/2;
@@ -614,26 +615,13 @@ static void gui_renderBorder( double dt )
          continue;
 
       pnt = cur_system->planets[i];
-      tex = pnt->gfx_space;
 
       /* See if in sensor range. */
       if (!pilot_inRangePlanet(player.p, i))
          continue;
 
-      /* Get relative positions. */
-      rx = (pnt->pos.x - player.p->solid->pos.x)*z;
-      ry = (pnt->pos.y - player.p->solid->pos.y)*z;
-
-      /* Correct for offset. */
-      crx = rx - gui_xoff;
-      cry = ry - gui_yoff;
-
-      /* Compare dimensions. */
-      cw = hw + tex->sw/2;
-      ch = hh + tex->sh/2;
-
       /* Check if out of range. */
-      if ((ABS(crx) > cw) || (ABS(cry) > ch)) {
+      if (!gui_onScreenAsset( &rx, &ry, NULL, pnt )) {
 
          /* Get border intersection. */
          gui_borderIntersection( &cx, &cy, rx, ry, hw, hh );
@@ -671,26 +659,13 @@ static void gui_renderBorder( double dt )
    /* Draw jump routes. */
    for (i=0; i<cur_system->njumps; i++) {
       jp  = &cur_system->jumps[i];
-      tex = jumppoint_gfx;
 
       /* See if in sensor range. */
       if (!pilot_inRangePlanet(player.p, i))
          continue;
 
-      /* Get relative positions. */
-      rx = (jp->pos.x - player.p->solid->pos.x)*z;
-      ry = (jp->pos.y - player.p->solid->pos.y)*z;
-
-      /* Correct for offset. */
-      crx = rx - gui_xoff;
-      cry = ry - gui_yoff;
-
-      /* Compare dimensions. */
-      cw = hw + tex->sw/2;
-      ch = hh + tex->sh/2;
-
       /* Check if out of range. */
-      if ((ABS(crx) > cw) || (ABS(cry) > ch)) {
+      if (!gui_onScreenAsset( &rx, &ry, jp, NULL )) {
 
          /* Get border intersection. */
          gui_borderIntersection( &cx, &cy, rx, ry, hw, hh );
@@ -729,26 +704,13 @@ static void gui_renderBorder( double dt )
    /* Draw pilots. */
    for (i=1; i<pilot_nstack; i++) { /* skip the player */
       plt = pilot_stack[i];
-      tex = plt->ship->gfx_space;
 
       /* See if in sensor range. */
       if (!pilot_inRangePilot(player.p, plt))
          continue;
 
-      /* Get relative positions. */
-      rx = (plt->solid->pos.x - player.p->solid->pos.x)*z;
-      ry = (plt->solid->pos.y - player.p->solid->pos.y)*z;
-
-      /* Correct for offset. */
-      rx -= gui_xoff;
-      ry -= gui_yoff;
-
-      /* Compare dimensions. */
-      cw = hw + tex->sw/2;
-      ch = hh + tex->sh/2;
-
       /* Check if out of range. */
-      if ((ABS(rx) > cw) || (ABS(ry) > ch)) {
+      if (!gui_onScreenPilot( &rx, &ry, plt )) {
 
          /* Get border intersection. */
          gui_borderIntersection( &cx, &cy, rx, ry, hw, hh );
@@ -787,6 +749,86 @@ static void gui_renderBorder( double dt )
 
 
 /**
+ * @brief Takes a pilot and returns whether it's on screen, plus its relative position.
+ *
+ * @param[out] rx Relative X position (factoring in viewport offset)
+ * @param[out] ry Relative Y position (factoring in viewport offset)
+ * @param pilot Pilot to determine the visibility and position of
+ * @return Whether or not the pilot is on-screen.
+ */
+int gui_onScreenPilot( double *rx, double *ry, Pilot *pilot )
+{
+   double z;
+   int cw, ch;
+   glTexture *tex;
+
+   z = cam_getZoom();
+
+   tex = pilot->ship->gfx_space;
+
+   /* Get relative positions. */
+   *rx = (pilot->solid->pos.x - player.p->solid->pos.x)*z;
+   *ry = (pilot->solid->pos.y - player.p->solid->pos.y)*z;
+
+   /* Correct for offset. */
+   *rx -= gui_xoff;
+   *ry -= gui_yoff;
+
+   /* Compare dimensions. */
+   cw = SCREEN_W/2 + tex->sw/2;
+   ch = SCREEN_H/2 + tex->sh/2;
+
+   if ((ABS(*rx) > cw) || (ABS(*ry) > ch)) {
+      return  0;
+   }
+   return 1;
+}
+
+
+/**
+ * @brief Takes a planet or jump point and returns whether it's on screen, plus its relative position.
+ *
+ * @param[out] rx Relative X position (factoring in viewport offset)
+ * @param[out] ry Relative Y position (factoring in viewport offset)
+ * @param jp Jump point to determine the visibility and position of
+ * @param pnt Planet to determine the visibility and position of
+ * @return Whether or not the given asset is on-screen.
+ */
+int gui_onScreenAsset( double *rx, double *ry, JumpPoint *jp, Planet *pnt )
+{
+   double z;
+   int cw, ch;
+   glTexture *tex;
+
+   z = cam_getZoom();
+
+   if (jp == NULL) {
+      tex = pnt->gfx_space;
+      *rx = (pnt->pos.x - player.p->solid->pos.x)*z;
+      *ry = (pnt->pos.y - player.p->solid->pos.y)*z;
+   }
+   else {
+      tex = jumppoint_gfx;
+      *rx = (jp->pos.x - player.p->solid->pos.x)*z;
+      *ry = (jp->pos.y - player.p->solid->pos.y)*z;
+   }
+
+   /* Correct for offset. */
+   *rx -= gui_xoff;
+   *ry -= gui_yoff;
+
+   /* Compare dimensions. */
+   cw = SCREEN_W/2 + tex->sw/2;
+   ch = SCREEN_H/2 + tex->sh/2;
+
+   if ((ABS(*rx) > cw) || (ABS(*ry) > ch)) {
+      return  0;
+   }
+   return 1;
+}
+
+
+/**
  * @brief Renders the gui targetting reticles.
  *
  * @param dt Current deltatick.
@@ -813,7 +855,6 @@ void gui_render( double dt )
    int i;
    double x;
    glColour col;
-   StarSystem *sys;
 
    /* If player is dead just render the cinematic mode. */
    if (!menu_isOpen(MENU_MAIN) &&
@@ -834,10 +875,10 @@ void gui_render( double dt )
    /*
     * Countdown timers.
     */
-   blink_pilot    -= dt;
+   blink_pilot    -= dt / dt_mod;
    if (blink_pilot < 0.)
       blink_pilot += RADAR_BLINK_PILOT;
-   blink_planet   -= dt;
+   blink_planet   -= dt / dt_mod;
    if (blink_planet < 0.)
       blink_planet += RADAR_BLINK_PLANET;
    if (interference_alpha > 0.)
@@ -853,7 +894,8 @@ void gui_render( double dt )
    if (gui_L != NULL) {
       gui_prepFunc( "render" );
       lua_pushnumber( gui_L, dt );
-      gui_runFunc( "render", 1, 0 );
+      lua_pushnumber( gui_L, dt_mod );
+      gui_runFunc( "render", 2, 0 );
    }
 
    /* Messages. */
@@ -863,29 +905,14 @@ void gui_render( double dt )
    /* OSD. */
    osd_render();
 
-   /*
-    * hyperspace
-    */
-   if (pilot_isFlag(player.p, PILOT_HYPERSPACE) &&
-         (player.p->ptimer < HYPERSPACE_FADEOUT)) {
-      x = (HYPERSPACE_FADEOUT-player.p->ptimer) / HYPERSPACE_FADEOUT;
-      col.r = 1.;
-      col.g = 1.;
-      col.b = 1.;
-      col.a = x;
-      gl_renderRect( 0., 0., SCREEN_W, SCREEN_H, &col );
-   }
-
    /* Noise when getting near a jump. */
    if (player.p->nav_hyperspace >= 0) { /* hyperspace target */
-
-      sys = cur_system->jumps[player.p->nav_hyperspace].target;
 
       /* Determine if we have to play the "enter hyperspace range" sound. */
       i = space_canHyperspace(player.p);
       if ((i != 0) && (i != can_jump))
          if (!pilot_isFlag(player.p, PILOT_HYPERSPACE))
-            player_playSound(snd_jump, 1);
+            player_soundPlayGUI(snd_jump, 1);
       can_jump = i;
    }
 
@@ -937,6 +964,8 @@ void gui_radarRender( double x, double y )
 
    /* The global radar. */
    radar = &gui_radar;
+   gui_radar.x = x;
+   gui_radar.y = y;
 
    gl_matrixPush();
    if (radar->shape==RADAR_RECT) {
@@ -996,6 +1025,43 @@ void gui_radarRender( double x, double y )
 
 
 /**
+ * @brief Gets the radar's position.
+ *
+ *    @param[out] x X position.
+ *    @param[out] y Y position.
+ */
+void gui_radarGetPos( int *x, int *y )
+{
+   *x = gui_radar.x;
+   *y = gui_radar.y;
+}
+
+
+/**
+ * @brief Gets the radar's dimensions.
+ *
+ *    @param[out] w Width.
+ *    @param[out] h Height.
+ */
+void gui_radarGetDim( int *w, int *h )
+{
+   *w = gui_radar.w;
+   *h = gui_radar.h;
+}
+
+
+/**
+ * @brief Outputs the radar's resolution.
+ *
+ *    @param[out] res Current zoom ratio.
+ */
+void gui_radarGetRes( int *res )
+{
+   *res = gui_radar.res;
+}
+
+
+/**
  * @brief Clears the GUI messages.
  */
 void gui_clearMessages (void)
@@ -1033,6 +1099,7 @@ static void gui_renderMessages( double dt )
    h  = conf.mesg_visible*gl_defFont.h*1.2;
    gl_renderRect( x-2., y-2., gui_mesg_w-13., h+4., &cBlackHilight );
 
+   /* Must be run here. */
    if (mesg_viewpoint != -1) {
       /* Set up position. */
       vx = x;
@@ -1056,7 +1123,7 @@ static void gui_renderMessages( double dt )
       if ((mesg_viewpoint != -1) || (mesg_stack[m].t >= 0.)) {
          /* Decrement timer. */
          if (mesg_viewpoint == -1) {
-            mesg_stack[m].t -= dt;
+            mesg_stack[m].t -= dt / dt_mod;
 
             /* Handle fading out. */
             if (mesg_stack[m].t - mesg_fade < 0.)
@@ -1069,8 +1136,10 @@ static void gui_renderMessages( double dt )
 
          /* Only handle non-NULL messages. */
          if (mesg_stack[m].str[0] != '\0') {
-            if (mesg_stack[m].str[0] == '\t')
+            if (mesg_stack[m].str[0] == '\t') {
+               gl_printRestore( &mesg_stack[m].restore );
                gl_printMaxRaw( NULL, gui_mesg_w - 45., x + 30, y, &c, &mesg_stack[m].str[1] );
+            }
             else
                gl_printMaxRaw( NULL, gui_mesg_w - 15., x, y, &c, mesg_stack[m].str );
          }
@@ -1715,29 +1784,24 @@ void gui_clearViewport (void)
 static void gui_calcBorders (void)
 {
    double w,h;
-   double vx,vy, vw,vh;
 
    /* Precalculations. */
-   vx = gui_viewport_x;
-   vy = gui_viewport_y;
-   vw = SCREEN_W - (vx + gui_viewport_w);
-   vh = SCREEN_H - (vy + gui_viewport_h);
    w  = SCREEN_W/2.;
    h  = SCREEN_H/2.;
 
    /*
     * Borders.
     */
-   gui_tl = atan2( +SCREEN_H/2., -SCREEN_W/2. );
+   gui_tl = atan2( +h, -w );
    if (gui_tl < 0.)
       gui_tl += 2*M_PI;
-   gui_tr = atan2( +SCREEN_H/2., +SCREEN_W/2. );
+   gui_tr = atan2( +h, +w );
    if (gui_tr < 0.)
       gui_tr += 2*M_PI;
-   gui_bl = atan2( -SCREEN_H/2., -SCREEN_W/2. );
+   gui_bl = atan2( -h, -w );
    if (gui_bl < 0.)
       gui_bl += 2*M_PI;
-   gui_br = atan2( -SCREEN_H/2., +SCREEN_W/2. );
+   gui_br = atan2( -h, +w );
    if (gui_br < 0.)
       gui_br += 2*M_PI;
 }
@@ -1818,12 +1882,13 @@ static int gui_prepFunc( const char* func )
 
    /* For comfort. */
    L = gui_L;
-
-#ifdef DEBUGGING
+#if DEBUGGING
    if (L == NULL) {
       WARN( "Trying to run GUI func '%s' but no GUI is loaded!", func );
       return -1;
    }
+
+   lua_pushcfunction(L, nlua_errTrace);
 #endif /* DEBUGGING */
 
    /* Set up function. */
@@ -1834,27 +1899,39 @@ static int gui_prepFunc( const char* func )
 
 /**
  * @brief Runs a function.
+ * @note Function must be prepared beforehand.
+ *    @param func Name of the function to run.
+ *    @param nargs Arguments to the function.
+ *    @param nret Parameters to get returned from the function.
  */
 static int gui_runFunc( const char* func, int nargs, int nret )
 {
-   int ret;
+   int ret, errf;
    const char* err;
    lua_State *L;
 
    /* For comfort. */
    L = gui_L;
 
+#if DEBUGGING
+   errf = -2-nargs;
+#else /* DEBUGGING */
+   errf = 0;
+#endif /* DEBUGGING */
+
    /* Run the function. */
-   ret = lua_pcall( L, nargs, nret, 0 );
+   ret = lua_pcall( L, nargs, nret, errf );
    if (ret != 0) { /* error has occured */
       err = (lua_isstring(L,-1)) ? lua_tostring(L,-1) : NULL;
       WARN("GUI Lua -> '%s': %s",
             func, (err) ? err : "unknown error");
       lua_pop(L,1);
-      return -1;
    }
+#if DEBUGGING
+   lua_pop(L,1);
+#endif /* DEBUGGING */
 
-   return 0;
+   return ret;
 }
 
 
@@ -1905,6 +1982,25 @@ void gui_setSystem (void)
 {
    if (gui_L != NULL)
       gui_doFunc( "update_system" );
+}
+
+
+/**
+ * @brief Calls trigger functions depending on who the pilot is.
+ *
+ *    @param The pilot to act base dupon.
+ */
+void gui_setGeneric (Pilot* pilot)
+{
+   if (gui_L == NULL)
+      return;
+
+   if (player.p->target != PLAYER_ID && pilot->id == player.p->target)
+      gui_setTarget();
+   else if (pilot_isPlayer(pilot)) {
+      gui_setCargo();
+      gui_setShip();
+   }
 }
 
 
@@ -1984,7 +2080,7 @@ int gui_load( const char* name )
 
 
 /**
- * @brief Creates teh interference map for the current gui.
+ * @brief Creates the interference map for the current gui.
  */
 static void gui_createInterference( Radar *radar )
 {
@@ -2268,6 +2364,3 @@ void gui_mouseMoveEnable( int enable )
 {
    gui_L_mmove = enable;
 }
-
-
-

@@ -388,7 +388,7 @@ float noise_get1( perlin_data_t* pdata, float f[1] )
 
    v[0] = lattice1(pdata,n[0],   r[0]   );
    v[1] = lattice1(pdata,n[0]+1, r[0]-1 );
-   value = LERP( v[0], v[1], w[1] );
+   value = LERP( v[0], v[1], w[0] );
 
    return CLAMP(-0.99999f, 0.99999f, value);
 }
@@ -541,7 +541,6 @@ float* noise_genRadarInt( const int w, const int h, float rug )
 {
    int x, y;
    float f[2];
-   int octaves;
    float hurst;
    float lacunarity;
    perlin_data_t* noise;
@@ -549,7 +548,6 @@ float* noise_genRadarInt( const int w, const int h, float rug )
    float value;
 
    /* pretty default values */
-   octaves     = 3;
    hurst       = NOISE_DEFAULT_HURST;
    lacunarity  = NOISE_DEFAULT_LACUNARITY;
 
@@ -602,7 +600,7 @@ static int noise_genNebulaMap_thread( void *data )
    /* Generate the layer. */
    max = 0;
    f[2] = args->zoom * (float)args->z / (float)args->n;
- 
+
    for (y=0; y<args->h; y++) {
       f[1] = args->zoom * (float)y / (float)args->h;
 
@@ -649,7 +647,7 @@ float* noise_genNebulaMap( const int w, const int h, const int n, float rug )
    float max;
    unsigned int s;
    thread_args *args;
-   ThreadQueue vpool;
+   ThreadQueue *vpool;
 
    /* pretty default values */
    octaves     = 3;

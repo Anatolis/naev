@@ -1,4 +1,36 @@
 <Events>
+ <event name="start_event">
+  <lua>start</lua>
+  <trigger>none</trigger>
+ </event>
+ <event name="Tutorial">
+  <lua>tutorial/tutorial</lua>
+  <trigger>none</trigger>
+ </event>
+ <event name="Tutorial: Basic Operation">
+  <lua>tutorial/tutorial-basic</lua>
+  <trigger>none</trigger>
+ </event>
+ <event name="Tutorial: Interstellar Flight">
+  <lua>tutorial/tutorial-interstellar</lua>
+  <trigger>none</trigger>
+ </event>
+ <event name="Tutorial: Basic Combat">
+  <lua>tutorial/tutorial-combat1</lua>
+  <trigger>none</trigger>
+ </event>
+ <event name="Tutorial: The Planetary Screen">
+  <lua>tutorial/tutorial-planet</lua>
+  <trigger>none</trigger>
+ </event>
+ <event name="Tutorial: Missions and Events">
+  <lua>tutorial/tutorial-missions</lua>
+  <trigger>none</trigger>
+ </event>
+ <event name="Tutorial: Communications">
+  <lua>tutorial/tutorial-comms</lua>
+  <trigger>none</trigger>
+ </event>
  <event name="Derelict">
   <lua>neutral/derelict</lua>
   <trigger>enter</trigger>
@@ -79,24 +111,6 @@
   <trigger>land</trigger>
   <chance>100</chance>
  </event>
- <event name="Tutorial Navigation">
-  <lua>neutral/tutorial</lua>
-  <trigger>enter</trigger>
-  <chance>100</chance>
-  <cond>var.peek("tutorial_done") == 2</cond>
-  <flags>
-   <unique />
-  </flags>
- </event>
- <event name="Tutorial Features">
-  <lua>neutral/tutorial-features</lua>
-  <trigger>load</trigger>
-  <chance>100</chance>
-  <cond>var.peek("version") == nil</cond>
-  <flags>
-   <unique />
-  </flags>
- </event>
  <event name="Cinematic Dvaered/FLF battle">
   <lua>cinematic/DvdFLFbattle</lua>
   <trigger>enter</trigger>
@@ -106,7 +120,7 @@
    <unique />
   </flags>
  </event>
- <event name="NAEV Needs You!">
+ <event name="Naev Needs You!">
   <lua>naev_needs_YOU</lua>
   <trigger>land</trigger>
   <chance>8</chance>

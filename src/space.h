@@ -194,7 +194,7 @@ extern glTexture *jumppoint_gfx; /**< Jump point graphics. */
 /**
  * @brief Represents a star system.
  *
- * The star system is the basic setting in NAEV.
+ * The star system is the basic setting in Naev.
  */
 struct StarSystem_ {
    int id; /**< Star system index. */
@@ -234,6 +234,7 @@ struct StarSystem_ {
    int spilled; /**< If the system has been spilled to yet. */
    int nsystemFleets; /**< The number of fleets in the system. */
    SystemFleet *systemFleets; /**< Array of pointers to the fleets in the system. */
+   double ownerpresence; /**< Amount of presence the owning faction has in a system. */
 
    /* Markers. */
    int markers_computer; /**< Number of mission computer markers. */
@@ -271,7 +272,7 @@ int planet_exists( const char* planetname );
 const char *planet_existsCase( const char* planetname );
 char **planet_searchFuzzyCase( const char* planetname, int *n );
 char planet_getClass( const Planet *p );
-unsigned int planet_commodityPrice( const Planet *p, const Commodity *c );
+credits_t planet_commodityPrice( const Planet *p, const Commodity *c );
 
 /*
  * system adding/removing stuff.
@@ -322,9 +323,11 @@ StarSystem* system_get( const char* sysname );
 StarSystem* system_getIndex( int id );
 int system_index( StarSystem *sys );
 int space_sysReachable( StarSystem *sys );
+int space_sysReallyReachable( char* sysname );
 char** space_getFactionPlanet( int *nplanets, int *factions, int nfactions );
 char* space_getRndPlanet (void);
-void system_getClosest( const StarSystem *sys, int *pnt, int *jp, double x, double y );
+double system_getClosest( const StarSystem *sys, int *pnt, int *jp, double x, double y );
+double system_getClosestAng( const StarSystem *sys, int *pnt, int *jp, double x, double y, double ang );
 
 
 /*

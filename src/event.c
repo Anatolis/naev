@@ -31,6 +31,7 @@
 #include "nlua_bkg.h"
 #include "nlua_tex.h"
 #include "nlua_music.h"
+#include "nlua_tut.h"
 #include "rng.h"
 #include "ndata.h"
 #include "nxml.h"
@@ -87,10 +88,9 @@ static int event_mactive         = 0; /**< Allocated space for active events. */
  * Prototypes.
  */
 static unsigned int event_genID (void);
-static Event_t *event_get( unsigned int eventid );
 static int event_parse( EventData_t *temp, const xmlNodePtr parent );
 static void event_freeData( EventData_t *event );
-static int event_create( int dataid, unsigned int id );
+static int event_create( int dataid, unsigned int *id );
 int events_saveActive( xmlTextWriterPtr writer );
 int events_loadActive( xmlNodePtr parent );;
 static int events_parseActive( xmlNodePtr parent );
@@ -99,7 +99,7 @@ static int events_parseActive( xmlNodePtr parent );
 /**
  * @brief Gets an event.
  */
-static Event_t *event_get( unsigned int eventid )
+Event_t *event_get( unsigned int eventid )
 {
    int i;
    Event_t *ev;
@@ -131,14 +131,13 @@ int event_start( const char *name, unsigned int *id )
    edat = event_dataID( name );
    if (edat < 0)
       return -1;
-   eid  = event_genID();
-   ret  = event_create( edat, eid );
+   eid  = 0;
+   ret  = event_create( edat, &eid );
 
    if ((ret == 0) && (id != NULL))
       *id = eid;
    return ret;
 }
-
 
 
 /**
@@ -246,7 +245,7 @@ static unsigned int event_genID (void)
  *    @param id ID to use (0 to generate).
  *    @return 0 on success.
  */
-static int event_create( int dataid, unsigned int id )
+static int event_create( int dataid, unsigned int *id )
 {
    lua_State *L;
    uint32_t bufsize;
@@ -262,8 +261,8 @@ static int event_create( int dataid, unsigned int id )
    }
    ev = &event_active[ event_nactive-1 ];
    memset( ev, 0, sizeof(Event_t) );
-   if (id > 0)
-      ev->id = id;
+   if ((id != NULL) && (*id != 0))
+      ev->id = *id;
    else
       ev->id = event_genID();
 
@@ -282,6 +281,8 @@ static int event_create( int dataid, unsigned int id )
    nlua_loadCamera(L,0);
    nlua_loadTex(L,0);
    nlua_loadMusic(L,0);
+   if (player_isTut())
+      nlua_loadTut(L);
 
    /* Load file. */
    buf = ndata_read( data->lua, &bufsize );
@@ -300,8 +301,10 @@ static int event_create( int dataid, unsigned int id )
    free(buf);
 
    /* Run Lua. */
-   if (id==0)
+   if ((id==NULL) || (*id==0))
       event_runLua( ev, "create" );
+   if (id != NULL)
+      *id = ev->id;
 
    return 0;
 }
@@ -403,6 +406,10 @@ void events_trigger( EventTrigger_t trigger )
    int i, c;
    int created;
 
+   /* Events can't be triggered by tutorial. */
+   if (player_isTut())
+      return;
+
    created = 0;
    for (i=0; i<event_ndata; i++) {
       /* Make sure trigger matches. */
@@ -430,7 +437,7 @@ void events_trigger( EventTrigger_t trigger )
       }
 
       /* Create the event. */
-      event_create( i, 0 );
+      event_create( i, NULL );
       created++;
    }
 
@@ -463,7 +470,7 @@ static int event_parse( EventData_t *temp, const xmlNodePtr parent )
    memset( temp, 0, sizeof(EventData_t) );
 
    /* get the name */
-   temp->name = xml_nodeProp(parent,"name");
+   temp->name = xml_nodeProp(parent, "name");
    if (temp->name == NULL)
       WARN("Event in "EVENT_DATA" has invalid or no name");
 
@@ -506,6 +513,8 @@ static int event_parse( EventData_t *temp, const xmlNodePtr parent )
             temp->trigger = EVENT_TRIGGER_LAND;
          else if (strcmp(buf,"load")==0)
             temp->trigger = EVENT_TRIGGER_LOAD;
+         else if (strcmp(buf,"none")==0)
+            temp->trigger = EVENT_TRIGGER_NONE;
          else
             WARN("Event '%s' has invalid 'trigger' parameter: %s", temp->name, buf);
 
@@ -541,7 +550,7 @@ static int event_parse( EventData_t *temp, const xmlNodePtr parent )
 #define MELEMENT(o,s) \
    if (o) WARN("Mission '%s' missing/invalid '"s"' element", temp->name)
    MELEMENT(temp->lua==NULL,"lua");
-   MELEMENT(temp->chance==0.,"chance");
+   MELEMENT((temp->trigger!=EVENT_TRIGGER_NONE) && (temp->chance==0.),"chance");
    MELEMENT(temp->trigger==EVENT_TRIGGER_NULL,"trigger");
 #undef MELEMENT
 
@@ -626,18 +635,12 @@ int events_load (void)
  */
 static void event_freeData( EventData_t *event )
 {
-   if (event->name) {
-      free(event->name);
-      event->name = NULL;
-   }
-   if (event->lua) {
-      free(event->lua);
-      event->lua = NULL;
-   }
-   if (event->cond) {
-      free(event->cond);
-      event->cond = NULL;
-   }
+   free( event->name );
+   free( event->lua );
+   free( event->cond );
+#if DEBUGGING
+   memset( event, 0, sizeof(EventData_t) );
+#endif /* DEBUGGING */
 }
 
 
@@ -670,10 +673,9 @@ void events_exit (void)
    events_cleanup();
 
    /* Free data. */
-   for (i=0; i<event_ndata; i++)
-      event_freeData(&event_data[i]);
    if (event_data != NULL) {
-      event_freeData(event_data);
+      for (i=0; i<event_ndata; i++)
+         event_freeData( &event_data[i] );
       free(event_data);
    }
    event_data  = NULL;
@@ -870,7 +872,7 @@ static int events_parseActive( xmlNodePtr parent )
       }
 
       /* Create the event. */
-      event_create( data, id );
+      event_create( data, &id );
       ev = event_get( id );
       if (ev == NULL) {
          WARN("Event with data '%s' was not created, skipping.", event_dataName(data));

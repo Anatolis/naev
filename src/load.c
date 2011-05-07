@@ -128,6 +128,7 @@ static int load_load( nsave_t *save, const char *path )
             /* Time. */
             if (xml_isNode(node,"time")) {
                cur = node->xmlChildrenNode;
+               scu = stp = stu = 0;
                do {
                   xmlr_int(cur,"SCU",scu);
                   xmlr_int(cur,"STP",stp);
@@ -189,6 +190,7 @@ int load_refresh (void)
 
    /* Allocate and parse. */
    ok = 0;
+   ns = NULL;
    for (i=0; i<nfiles; i++) {
       if (!ok)
          ns = &array_grow( &load_saves );
@@ -390,7 +392,7 @@ static void load_menu_load( unsigned int wdw, char *str )
 
    /* Check version. */
    if (ns->version != NULL) {
-      naev_versionParse( version, ns->version, strlen(ns->version) );
+      naev_versionParse( version, ns[pos].version, strlen(ns[pos].version) );
       diff = naev_versionCompare( version );
       if (ABS(diff) >= 2) {
          if (!dialogue_YesNo( "Save game version mismatch",
@@ -398,16 +400,20 @@ static void load_menu_load( unsigned int wdw, char *str )
                   "   Save version: \er%s\e0\n"
                   "   Naev version: \eD%s\e0\n"
                   "Are you sure you want to load the game? It may have loss of data.",
-                  save, ns->version, naev_version(0) ))
+                  save, ns[pos].version, naev_version(0) ))
             return;
       }
    }
 
    /* Close menus before loading for proper rendering. */
    load_menu_close(wdw, NULL);
+
+   /* Close the main menu. */
    menu_main_close();
 
+   /* Try to load the game. */
    if (load_game( ns[pos].path )) {
+      /* Failed so reopen both. */
       menu_main();
       load_loadGameMenu();
    }
@@ -474,10 +480,6 @@ int load_game( const char* file )
 
    /* Clean up possible stuff that should be cleaned. */
    player_cleanup();
-   diff_clear();
-   var_cleanup();
-   missions_cleanup();
-   events_cleanup();
 
    /* Welcome message - must be before space_init. */
    player_message( "\egWelcome to "APPNAME"!" );

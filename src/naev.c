@@ -18,7 +18,6 @@
  */
 /* localised global */
 #include "SDL.h"
-#include "SDL_image.h"
 
 #include "naev.h"
 #include "log.h" /* for DEBUGGING */
@@ -93,6 +92,7 @@
 #include "start.h"
 #include "threadpool.h"
 #include "load.h"
+#include "dialogue.h"
 
 
 #define CONF_FILE       "conf.lua" /**< Configuration file by default. */
@@ -149,7 +149,7 @@ static void update_all (void);
 static void render_all (void);
 /* Misc. */
 void loadscreen_render( double done, const char *msg ); /* nebula.c */
-void main_loop (void); /* dialogue.c */
+void main_loop( int update ); /* dialogue.c */
 
 
 /**
@@ -348,22 +348,12 @@ int main( int argc, char** argv )
          input_handle(&event); /* handles all the events and player keybinds */
       }
 
-      main_loop();
+      main_loop( 1 );
    }
 
 
    /* Save configuration. */
    conf_saveConfig(buf);
-
-   /* cleanup some stuff */
-   player_cleanup(); /* cleans up the player stuff */
-   gui_free(); /* cleans up the player's GUI */
-   weapon_exit(); /* destroys all active weapons */
-   pilots_free(); /* frees the pilots, they were locked up :( */
-   cond_exit(); /* destroy conditional subsystem. */
-   land_exit(); /* Destroys landing vbo and friends. */
-   npc_clear(); /* In case exitting while landed. */
-   background_free(); /* Destroy backgrounds. */
 
    /* data unloading */
    unload_all();
@@ -379,20 +369,18 @@ int main( int argc, char** argv )
    /* Destroy conf. */
    conf_cleanup(); /* Frees some memory the configuration allocated. */
 
-   /* Clean up loading game stuff stuff. */
-   load_free();
-
    /* exit subsystems */
-   cli_exit(); /* CLean up the console. */
-   map_exit(); /* destroys the map. */
-   toolkit_exit(); /* kills the toolkit */
-   ai_exit(); /* stops the Lua AI magic */
-   joystick_exit(); /* releases joystick */
-   input_exit(); /* cleans up keybindings */
-   nebu_exit(); /* destroys the nebula */
-   gl_exit(); /* kills video output */
-   sound_exit(); /* kills the sound */
-   news_exit(); /* destroys the news. */
+   cli_exit(); /* Clean up the console. */
+   map_exit(); /* Destroys the map. */
+   ovr_mrkFree(); /* Clear markers. */
+   toolkit_exit(); /* Kills the toolkit */
+   ai_exit(); /* Stops the Lua AI magic */
+   joystick_exit(); /* Releases joystick */
+   input_exit(); /* Cleans up keybindings */
+   nebu_exit(); /* Destroys the nebula */
+   gl_exit(); /* Kills video output */
+   sound_exit(); /* Kills the sound */
+   news_exit(); /* Destroys the news. */
 
    /* Free the icon. */
    if (naev_icon)
@@ -564,6 +552,7 @@ void load_all (void)
    loadscreen_render( 11./LOADING_STAGES, "Loading the Universe..." );
    space_load();
    background_init();
+   player_init(); /* Initialize player stuff. */
    loadscreen_render( 1., "Loading Completed!" );
    xmlCleanupParser(); /* Only needed to be run after all the loading is done. */
 }
@@ -572,7 +561,16 @@ void load_all (void)
  */
 void unload_all (void)
 {
-   /* data unloading - inverse load_all is a good order */
+   /* cleanup some stuff */
+   player_cleanup(); /* cleans up the player stuff */
+   gui_free(); /* cleans up the player's GUI */
+   weapon_exit(); /* destroys all active weapons */
+   pilots_free(); /* frees the pilots, they were locked up :( */
+   cond_exit(); /* destroy conditional subsystem. */
+   land_exit(); /* Destroys landing vbo and friends. */
+   npc_clear(); /* In case exitting while landed. */
+   background_free(); /* Destroy backgrounds. */
+   load_free(); /* Clean up loading game stuff stuff. */
    economy_destroy(); /* must be called before space_exit */
    space_exit(); /* cleans up the universe itself */
    tech_free(); /* Frees tech stuff. */
@@ -581,41 +579,46 @@ void unload_all (void)
    outfit_free();
    spfx_free(); /* gets rid of the special effect */
    missions_free();
+   events_cleanup(); /* Clean up events. */
    factions_free();
    commodity_free();
    var_cleanup(); /* cleans up mission variables */
 }
 
+
 /**
  * @brief Split main loop from main() for secondary loop hack in toolkit.c.
  */
-void main_loop (void)
+void main_loop( int update )
 {
-   int tk;
-
-   /* Check to see if toolkit is open. */
-   tk = toolkit_isOpen();
-
-   /* Clear buffer. */
-   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+   /*
+    * Control FPS.
+    */
    fps_control(); /* everyone loves fps control */
 
-   /* Important that we pass real_dt here otherwise we get a dt feedback loop which isn't pretty. */
-   player_updateAutonav( real_dt );
-
+   /*
+    * Handle update.
+    */
    input_update( real_dt ); /* handle key repeats. */
-
    sound_update( real_dt ); /* Update sounds. */
-   if (tk) toolkit_update(); /* to simulate key repetition */
-   if (!paused)
+   if (toolkit_isOpen())
+      toolkit_update(); /* to simulate key repetition */
+   if (!paused && update) {
+      /* Important that we pass real_dt here otherwise we get a dt feedback loop which isn't pretty. */
+      player_updateAutonav( real_dt );
       update_all(); /* update game */
+   }
+
+   /*
+    * Handle render.
+    */
+   /* Clear buffer. */
+   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
    render_all();
    /* Toolkit is rendered on top. */
-   if (tk) toolkit_render();
-
+   if (toolkit_isOpen())
+      toolkit_render();
    gl_checkErr(); /* check error every loop */
-
    /* Draw buffer. */
    SDL_GL_SwapBuffers();
 }
@@ -720,10 +723,9 @@ static void fps_control (void)
 static void update_all (void)
 {
    int i, n;
-   double nf, microdt;
+   double nf, microdt, accumdt;
 
    if ((real_dt > 0.25) && (fps_skipped==0)) { /* slow timers down and rerun calculations */
-      pause_delay((unsigned int)game_dt*1000);
       fps_skipped = 1;
       return;
    }
@@ -735,15 +737,24 @@ static void update_all (void)
       n  = (int) nf;
 
       /* Update as much as needed, evenly. */
+      accumdt = 0.;
       for (i=0; i<n; i++) {
-         pause_delay( (unsigned int)(microdt*1000));
-         update_routine(microdt);
+         update_routine( microdt, 0 );
+         /* Ok, so we need a bit of hackish logic here in case we are chopping up a
+          * very large dt and it turns out time compression changes so we're now
+          * updating in "normal time compression" zone. This amounts to many updates
+          * being run when time compression has changed and thus can cause say the
+          * player to exceed his target position or get raped by an enemy ship.
+          */
+         accumdt += microdt;
+         if (accumdt > dt_mod*real_dt)
+            break;
       }
 
       /* Note we don't touch game_dt so that fps_display works well */
    }
    else /* Standard, just update with the last dt */
-      update_routine(game_dt);
+      update_routine( game_dt, 0 );
 
    fps_skipped = 0;
 }
@@ -754,20 +765,26 @@ static void update_all (void)
  *
  *    @param[in] dt Current delta tick.
  */
-void update_routine( double dt )
+void update_routine( double dt, int enter_sys )
 {
-   /* Update time. */
-   ntime_update( dt );
+   if (!enter_sys) {
+      hook_exclusionStart();
+
+      /* Update time. */
+      ntime_update( dt );
+   }
 
    /* Update engine stuff. */
    space_update(dt);
    weapons_update(dt);
    spfx_update(dt);
    pilots_update(dt);
-   hooks_update(dt);
 
    /* Update camera. */
    cam_update( dt );
+
+   if (!enter_sys)
+      hook_exclusionEnd( dt );
 }
 
 

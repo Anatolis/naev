@@ -197,8 +197,10 @@ void shipyard_update( unsigned int wid, char* str )
             "NA\n"
             "NA\n"
             "NA\n" );
+      window_modifyImage( wid, "imgTarget", NULL, 0, 0 );
+      window_modifyText( wid, "txtStats", NULL );
+      window_modifyText( wid, "txtDescription", NULL );
       window_modifyText( wid, "txtDDesc", buf );
-      window_modifyImage( wid, "txtStats", NULL, 0, 0 );
       return;
    }
 
@@ -294,7 +296,7 @@ static void shipyard_buy( unsigned int wid, char* str )
    shipname = toolkit_getImageArray( wid, "iarShipyard" );
    ship = ship_get( shipname );
 
-   int targetprice = ship->price;
+   credits_t targetprice = ship->price;
 
    if (land_errDialogue( shipname, "buy" ))
       return;
@@ -305,7 +307,7 @@ static void shipyard_buy( unsigned int wid, char* str )
       return;
 
    /* player just gots a new ship */
-   if (player_newShip( ship, NULL, 0 ) != 0) {
+   if (player_newShip( ship, NULL, 0, 0 ) == NULL) {
       /* Player actually aborted naming process. */
       return;
    }
@@ -347,9 +349,7 @@ int shipyard_canBuy ( char *shipname )
 int can_sell( char* shipname )
 {
    int failure = 0;
-   Pilot* ship;
-   ship = player_getShip( shipname );
-   if (strcmp(shipname,player.p->name)==0) { /* Already onboard. */
+   if (strcmp( shipname, player.p->name )==0) { /* Already onboard. */
       land_errDialogueBuild( "You can't sell the ship you're piloting.", shipname );
       failure = 1;
    }
@@ -396,7 +396,7 @@ int shipyard_canTrade( char* shipname )
       failure = 1;
    }
    if (!player_hasCredits( ship->price - player_shipPrice(player.p->name))) {
-      int creditdifference = ship->price - (player_shipPrice(player.p->name) + player.p->credits);
+      credits_t creditdifference = ship->price - (player_shipPrice(player.p->name) + player.p->credits);
       char buf[ECON_CRED_STRLEN];
       credits2str( buf, creditdifference, 2 );
       land_errDialogueBuild( "You need %s more credits.", buf);
@@ -423,8 +423,8 @@ static void shipyard_trade( unsigned int wid, char* str )
    shipname = toolkit_getImageArray( wid, "iarShipyard" );
    ship = ship_get( shipname );
 
-   int targetprice = ship->price;
-   int playerprice = player_shipPrice(player.p->name);
+   credits_t targetprice = ship->price;
+   credits_t playerprice = player_shipPrice(player.p->name);
 
    if (land_errDialogue( shipname, "trade" ))
       return;
@@ -455,7 +455,7 @@ static void shipyard_trade( unsigned int wid, char* str )
    }
 
    /* player just gots a new ship */
-   if (player_newShip( ship, NULL, 1 ) != 0)
+   if (player_newShip( ship, NULL, 1, 0 ) == NULL)
       return; /* Player aborted the naming process. */
 
    player_modCredits( playerprice - targetprice ); /* Modify credits by the difference between ship values. */

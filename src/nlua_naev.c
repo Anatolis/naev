@@ -5,34 +5,47 @@
 /**
  * @file nlua_naev.c
  *
- * @brief Contains NAEV generic Lua bindings.
+ * @brief Contains Naev generic Lua bindings.
  */
 
 #include "nlua_naev.h"
 
 #include "naev.h"
 
-#include "lauxlib.h"
+#include <lauxlib.h>
 
 #include "nlua.h"
 #include "nluadef.h"
+#include "nlua_evt.h"
+#include "nlua_misn.h"
 #include "log.h"
 #include "nstd.h"
 #include "input.h"
+#include "land.h"
 
 
-/* NAEV methods. */
+/* Naev methods. */
 static int naev_lang( lua_State *L );
-static int naev_getKey( lua_State *L );
+static int naev_keyGet( lua_State *L );
+static int naev_keyEnable( lua_State *L );
+static int naev_keyEnableAll( lua_State *L );
+static int naev_keyDisableAll( lua_State *L );
+static int naev_eventStart( lua_State *L );
+static int naev_missionStart( lua_State *L );
 static const luaL_reg naev_methods[] = {
    { "lang", naev_lang },
-   { "getKey", naev_getKey },
+   { "keyGet", naev_keyGet },
+   { "keyEnable", naev_keyEnable },
+   { "keyEnableAll", naev_keyEnableAll },
+   { "keyDisableAll", naev_keyDisableAll },
+   { "eventStart", naev_eventStart },
+   { "missionStart", naev_missionStart },
    {0,0}
-}; /**< NAEV Lua methods. */
+}; /**< Naev Lua methods. */
 
 
 /**
- * @brief Loads the NAEV Lua library.
+ * @brief Loads the Naev Lua library.
  *
  *    @param L Lua state.
  *    @return 0 on success.
@@ -44,7 +57,7 @@ int nlua_loadNaev( lua_State *L )
 }
 
 /**
- * @brief NAEV generic Lua bindings.
+ * @brief Naev generic Lua bindings.
  *
  * An example would be:
  * @code
@@ -56,7 +69,7 @@ int nlua_loadNaev( lua_State *L )
  * @luamod naev
  */
 /**
- * @brief Gets the language NAEV is currently using.
+ * @brief Gets the language Naev is currently using.
  *
  * @usage if naev.lang() == "en" then -- Language is english
  *
@@ -74,12 +87,12 @@ static int naev_lang( lua_State *L )
 /**
  * @brief Gets the keybinding value by name.
  *
- * @usage bindname = naev.getKey( "accel" )
+ * @usage bindname = naev.keyGet( "accel" )
  *
  *    @luaparam keyname Name of the keybinding to get value of.
- * @luafunc getKey( keyname )
+ * @luafunc keyGet( keyname )
  */
-static int naev_getKey( lua_State *L )
+static int naev_keyGet( lua_State *L )
 {
    int p;
    const char *keyname;
@@ -131,4 +144,114 @@ static int naev_getKey( lua_State *L )
 
    return 1;
 }
+
+
+/**
+ * @brief Disables or enables a specific keybinding.
+ *
+ * Use with caution, this can make the player get stuck.
+ *
+ * @usage naev.keyEnable( "accel", false ) -- Disables the acceleration key
+ *    @luaparam keyname Name of the key to disable (for example "accel").
+ *    @luaparam enable Whether to enable or disable (if omitted disables).
+ * @luafunc keyEnable( keyname, enable )
+ */
+static int naev_keyEnable( lua_State *L )
+{
+   const char *key;
+   int enable;
+
+   /* Parameters. */
+   key = luaL_checkstring(L,1);
+   enable = lua_toboolean(L,2);
+
+   input_toggleEnable( key, enable );
+   return 0;
+}
+
+
+/**
+ * @brief Enables all inputs.
+ *
+ * @usage naev.keyEnableAll() -- Enables all inputs
+ * @luafunc keyEnableAll()
+ */
+static int naev_keyEnableAll( lua_State *L )
+{
+   (void) L;
+   input_enableAll();
+   return 0;
+}
+
+
+/**
+ * @brief Disables all inputs.
+ *
+ * @usage naev.keyDisableAll() -- Disables all inputs
+ * @luafunc keyDisableAll()
+ */
+static int naev_keyDisableAll( lua_State *L )
+{
+   (void) L;
+   input_disableAll();
+   return 0;
+}
+
+
+/**
+ * @brief Starts an event, does not start check conditions.
+ *
+ * @usage naev.eventStart( "Some Event" )
+ *    @luaparam evtname Name of the event to start.
+ *    @luareturn true on success.
+ * @luafunc eventStart( evtname )
+ */
+static int naev_eventStart( lua_State *L )
+{
+   int ret;
+   const char *str;
+
+   str = luaL_checkstring(L, 1);
+   ret = event_start( str, NULL );
+
+   /* Get if console. */
+   lua_getglobal(L, "__cli");
+   if (lua_toboolean(L,-1) && landed)
+      bar_regen();
+   lua_pop(L,1);
+
+   lua_pushboolean( L, !ret );
+   return 1;
+}
+
+
+/**
+ * @brief Starts a mission, does no check start conditions.
+ *
+ * @usage naev.missionStart( "Some Event" )
+ *    @luaparam misnname Name of the mission to start.
+ *    @luareturn true on success.
+ * @luafunc missionStart( misnname )
+ */
+static int naev_missionStart( lua_State *L )
+{
+   int ret;
+   const char *str;
+
+   str = luaL_checkstring(L, 1);
+   ret = mission_start( str, NULL );
+
+   /* Get if console. */
+   lua_getglobal(L, "__cli");
+   if (lua_toboolean(L,-1) && landed)
+      bar_regen();
+   lua_pop(L,1);
+
+   lua_pushboolean( L, !ret );
+   return 1;
+}
+
+
+
+
 

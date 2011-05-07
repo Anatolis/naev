@@ -142,7 +142,7 @@ AS_IF([test "$enable_debug" != "no"], [
   AS_IF([test "$have_custom_cflags" = "no"], [
     # Undo the default CFLAGS set by autoconf
     AS_IF([test "$ac_cv_prog_cc_g" = "yes"], [
-      CFLAGS="-g -W -Wall -Wextra -Wunused -Wshadow -Wpointer-arith -Wmissing-prototypes -Winline -Wcast-align -Wmissing-declarations -Wredundant-decls -Wno-long-long"
+      CFLAGS="-g -W -Wall -Wextra -Wunused -Wshadow -Wpointer-arith -Wmissing-prototypes -Winline -Wcast-align -Wmissing-declarations -Wredundant-decls -Wno-long-long -Wcast-align"
     ], [
       CFLAGS=
     ])
@@ -193,6 +193,27 @@ AC_ARG_WITH([sdlmixer],
     with_sdlmixer=yes
   ])
 AC_MSG_RESULT([$with_sdlmixer])
+
+# --enable-lua
+AC_MSG_CHECKING([which lua to use])
+AC_ARG_ENABLE([lua],
+  AC_HELP_STRING([--enable-lua=@<:@internal|shared|luajit@:>@],
+     [lua to use (default: internal)]), [
+    case "$enableval" in
+      luajit)
+        used_lua=luajit
+        ;;
+      shared)
+        used_lua=shared
+        ;;
+      *)
+        used_lua=internal
+        ;;
+    esac
+  ], [
+    used_lua=internal
+  ])
+AC_MSG_RESULT([$used_lua])
 
 # --with-ndata
 ndata_path="$datadir/$PACKAGE_NAME/ndata"
@@ -250,6 +271,48 @@ PKG_CHECK_MODULES([VORBISFILE], [vorbisfile], [], [
 # libpng
 PKG_CHECK_MODULES([PNG], [libpng], [], [
   AC_ERROR([libpng not found])
+])
+
+# lua
+case "$used_lua" in
+  luajit)
+    PKG_CHECK_MODULES([LUA], [luajit], [
+      have_lua=yes
+      LUA_CFLAGS+="-DHAVE_LUAJIT"
+    ], [
+      AC_WARN([Lua is set to Lua-JIT but can not find library; using internal Lua])
+      have_lua=no
+    ])
+    ;;
+  shared)
+    PKG_CHECK_MODULES([LUA], [lua], [have_lua=yes], [have_lua=no])
+    AS_IF([test "$have_lua" = "no"], [PKG_CHECK_MODULES([LUA], [lua5.1], [have_lua=yes], [have_lua=no])])
+    AS_IF([test "$have_lua" = "no"], [PKG_CHECK_MODULES([LUA], [lua51], [have_lua=yes], [have_lua=no])])
+    AS_IF([test "$have_lua" = "no"], [AC_WARN([Lua is set to shared but can not find library; using internal Lua])])
+    ;;
+  *)
+    have_lua=no
+    ;;
+esac
+AS_IF([test "$have_lua" = "no"], [
+  LUA_CFLAGS="-I\"\$(top_srcdir)/lib/lua\""
+  LUA_LIBS="\$(top_builddir)/lib/lua/liblua.a"
+  have_lua=yes
+  used_lua=internal
+])
+
+
+AC_CHECK_LIB([csparse], [cs_spalloc], [have_csparse_lib=yes], [have_csparse_lib=no])
+AC_CHECK_LIB([cxsparse], [cs_di_spalloc], [have_cxsparse_lib=yes], [have_cxsparse_lib=no])
+AC_CHECK_HEADERS([cs.h], [have_cs_h=yes], [have_cs_h=no])
+AC_CHECK_HEADERS([suitesparse/cs.h], [have_suitesparse_cs_h=yes], [have_suitesparse_cs_h=no])
+AS_IF([test $have_csparse_lib = yes -a $have_cxsparse_lib = yes -a \( $have_cs_h = yes -o $have_suitesparse_cs_h = yes \)], [
+   used_csparse=shared
+   CSPARSE_LIBS="-lcsparse -lcxsparse"
+], [
+   used_csparse=internal
+   CSPARSE_CFLAGS="-I\"\$(top_srcdir)/lib/csparse\""
+   CSPARSE_LIBS="\$(top_builddir)/lib/csparse/libcsparse.a"
 ])
 
 # OpenAL
@@ -317,12 +380,6 @@ AC_SUBST([GLOBAL_LIBS])
 # naev
 WIDGET_LIBS="\$(top_builddir)/src/tk/widget/libwidget.a"
 
-CSPARSE_CFLAGS="-I\"\$(top_srcdir)/lib/csparse\""
-CSPARSE_LIBS="\$(top_builddir)/lib/csparse/libcsparse.a"
-
-LUA_CFLAGS="-I\"\$(top_srcdir)/lib/lua\""
-LUA_LIBS="\$(top_builddir)/lib/lua/liblua.a"
-
 NAEV_CFLAGS="$GLOBAL_CFLAGS"
 NAEV_LIBS="$GLOBAL_LIBS $WIDGET_LIBS"
 
@@ -333,7 +390,7 @@ AS_IF([test "$enable_debug" != "no"], [
      case "$host" in
        *-linux-gnu)
          AC_DEFINE([HAS_BFD], 1, [Define to 1 to enable bfd backtrace code])
-         NAEV_LIBS="$NAEV_LIBS -lbfd -rdynamic"
+         NAEV_LIBS="$NAEV_LIBS -lbfd -liberty -rdynamic"
          ;;
      esac
   ])
@@ -512,6 +569,8 @@ AM_CONDITIONAL([HAVE_LUADOC], [test -n "$LUADOC"])
 AM_CONDITIONAL([HAVE_UTILS], [test "x$have_utils" = "xyes"])
 AM_CONDITIONAL([HAVE_DOCS], [test "x$have_docs" = "xyes"])
 AM_CONDITIONAL([HAVE_MKSPR], [test "x$have_mkspr" = "xyes"])
+AM_CONDITIONAL([LUA_INTERNAL], [test "x$used_lua" = "xinternal"])
+AM_CONDITIONAL([CSPARSE_INTERNAL], [test "x$used_csparse" = "xinternal"])
 
 #
 # Output
@@ -519,8 +578,6 @@ AM_CONDITIONAL([HAVE_MKSPR], [test "x$have_mkspr" = "xyes"])
 SHAVE_INIT([build], [enable])
 AC_CONFIG_FILES([Makefile
       lib/Makefile
-      lib/csparse/Makefile
-      lib/lua/Makefile
       src/Makefile
       src/tk/Makefile
       src/tk/widget/Makefile
@@ -533,6 +590,12 @@ AS_IF([test "x$have_utils" = "xyes"], [
 AS_IF([test "x$have_docs" = "xyes"], [
   AC_CONFIG_FILES([docs/Makefile])
 ])
+AS_IF([test "x$used_lua" = "xinternal"], [
+  AC_CONFIG_FILES([lib/lua/Makefile])
+])
+AS_IF([test "x$used_csparse" = "xinternal"], [
+  AC_CONFIG_FILES([lib/csparse/Makefile])
+])
 
 AC_OUTPUT
 
@@ -544,6 +607,10 @@ echo
 AC_MSG_NOTICE([sound backends:])
 AC_MSG_NOTICE([  OpenAL:    $have_openal])
 AC_MSG_NOTICE([  SDL_mixer: $have_sdlmixer])
+echo
+AC_MSG_NOTICE([lib:])
+AC_MSG_NOTICE([  csparse:   $used_csparse])
+AC_MSG_NOTICE([  lua:       $used_lua])
 echo
 AC_MSG_NOTICE([utils:       $have_utils])
 AC_MSG_NOTICE([  mkspr:     $have_mkspr])

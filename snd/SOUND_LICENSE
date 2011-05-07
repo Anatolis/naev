@@ -19,7 +19,7 @@
      * afterburner.wav
      * beam0.wav
      * beam_off0.wav
-     * engien.wav
+     * engine.wav
      * explosion0.wav
      * explosion1.wav
      * explosion2.wav
@@ -96,8 +96,15 @@
 
  * Author: Askyel, License: CC-by-sa 3.0
    * music
-     * Askyel - Bells (short version).ogg
-     * Askyel - Classic.ogg
-     * Askyel - Eridani's Rock.ogg
-     * Askyel - Revenger 34.ogg
-     * Askyel - Sirius Remix.ogg
+     * ambient4.ogg
+     * combat1.ogg
+     * combat2.ogg
+     * combat3.ogg
+     * dvaered1.ogg
+     * dvaered2.ogg
+     * sirius2.ogg
+
+ * Author: Sean Hildebrand, License: PD
+   * sound
+     * compression.ogg
+

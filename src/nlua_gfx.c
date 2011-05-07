@@ -12,7 +12,7 @@
 
 #include "naev.h"
 
-#include "lauxlib.h"
+#include <lauxlib.h>
 
 #include "nlua.h"
 #include "nluadef.h"
@@ -73,7 +73,7 @@ int nlua_loadGFX( lua_State *L, int readonly )
 
 
 /**
- * @brief Lua bindings to interact with rendering and the NAEV graphical environment.
+ * @brief Lua bindings to interact with rendering and the Naev graphical environment.
  *
  * An example would be:
  * @code
@@ -86,11 +86,11 @@ int nlua_loadGFX( lua_State *L, int readonly )
 
 
 /**
- * @brief Gets the dimensions of the NAEV window.
+ * @brief Gets the dimensions of the Naev window.
  *
  * @usage screen_w, screen_h = gfx.dim()
  *
- *    @luareturn The width and height of the NAEV window.
+ *    @luareturn The width and height of the Naev window.
  * @luafunc dim()
  */
 static int gfxL_dim( lua_State *L )
@@ -376,7 +376,7 @@ static int gfxL_print( lua_State *L )
  *    @luaparam x X position to print at.
  *    @luaparam y Y position to print at.
  *    @luaparam w Width of the block of text.
- *    @luaparam h Height of the block of tetx.
+ *    @luaparam h Height of the block of text.
  *    @luaparam col Colour to print text.
  * @luafunc printText( small, str, x, y, w, h, col )
  */

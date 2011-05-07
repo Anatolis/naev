@@ -1,6 +1,6 @@
 --[[
 
-EVENT TITLE: NAEV Needs You!
+EVENT TITLE: Naev Needs You!
 DESCRIPTION: 
          An event that pops up to encourage new players to contribute to the project.
 
@@ -19,7 +19,7 @@ else -- default english
 -- Stage one: something goes wrong in fabric of reality.
    title = {}
    text = {}
-   title[1] = "NAEV received SIGSEGV (address not mapped to object)!"
+   title[1] = "Naev received SIGSEGV (address not mapped to object)!"
    text[1] = [[As you step out of your ship, suddenly the sunlight flickers. In the sky, the local star turns blue, then a deep purple, and then goes dark. The whole planet plunges into darkness.
 
 Then a voice speaks, louder than an earthquake. It seems to sound inside your bones and from the very centre of the earth. "Oh crap..." it says.
@@ -38,7 +38,7 @@ A window opens in the darkness, infinitely far away and infinitely large. A face
 
 The creator turns to go, then pauses.
 
-"By the way, we're working hard on improving life, the universe, and all that, but we're a bit short handed. If you like this existence but think the details could be improved, the universe creation team could use your help. We'd be especially happy to see you if you have any special skill in drawing planets, designing ships, scripting the underlying laws of nature, or composing the music of the spheres. For information on how to contribute, just point your web-of-reality browser to http://blog.naev.org/."
+"By the way, we're working hard on improving life, the universe, and all that, but we're a bit short handed. If you like this existence but think the details could be improved, the universe creation team could use your help. We'd be especially happy to see you if you have any special skill in drawing planets, designing ships, scripting the underlying laws of nature, or composing the music of the spheres. For information on how to contribute, just point your web-of-reality browser to http://naev.org/."
 
 The watchmaker lifts his eyes up beyond your frame of reference and smiles.
 
@@ -90,14 +90,13 @@ function create()
       end
       
       -- everything returns to normal
-      
       music.stop()
-      music.load( background_music)
-      music.play() --
-      
+      if background_music ~= nil then
+         music.load( background_music )
+         music.play()
+      end
 
       evt.finish( true)
-
 end
 
 --[[
