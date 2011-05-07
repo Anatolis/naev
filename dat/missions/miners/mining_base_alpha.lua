@@ -73,7 +73,7 @@ function create ()
    credits = 50000
 
    -- Set stuff up for the spaceport bar
-   misn.setNPC( "A miner", "none" ) -- TODO: portrait of a 'scary' miner
+   misn.setNPC( "Miner", "miner1" )
    misn.setDesc( bar_desc )
 end
 
