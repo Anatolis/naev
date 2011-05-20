@@ -13196,4 +13196,26 @@ New Dortmund was never very successful in any sense of the term, but it is still
    <item>Low Tech Upgrades</item>
   </tech>
  </asset>
+ <asset name="asteroids">
+  <pos>
+   <x>3500</x>
+   <y>-5000</y>
+  </pos>
+  <GFX>
+   <space>Asteroids.png</space>
+   <exterior>station04.png</exterior>
+  </GFX>
+  <presence>
+   <value>0.000000</value>
+   <range>0</range>
+  </presence>
+  <general>
+   <class>D</class>
+   <population>0</population>
+   <services/>
+   <commodities/>
+   <description>(null)</description>
+   <bar>(null)</bar>
+  </general>
+ </asset>
 </Assets>

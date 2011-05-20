@@ -4907,7 +4907,9 @@
    <x>-243.000000</x>
    <y>-265.000000</y>
   </pos>
-  <assets/>
+  <assets>
+	<asset>asteroids</asset>
+  </assets>
   <jumps>
    <jump target="Gamma Polaris">
     <pos x="9622.759956" y="-4201.486741"/>
