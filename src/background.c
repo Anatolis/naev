@@ -28,6 +28,7 @@
 #include "nlua_col.h"
 #include "nlua_bkg.h"
 #include "camera.h"
+#include "nebula.h"
 
 
 /**
@@ -43,7 +44,7 @@ typedef struct background_image_s {
    glColour col; /**< Colour to use. */
 } background_image_t;
 static background_image_t *bkg_image_arr_bk = NULL; /**< Background image array to display (behind stars). */
-static background_image_t *bkg_image_arr_ft = NULL; /**< Background image array to display (infront of stars). */
+static background_image_t *bkg_image_arr_ft = NULL; /**< Background image array to display (in front of stars). */
 
 
 static unsigned int bkg_idgen = 0; /**< ID generator for backgrounds. */
@@ -83,7 +84,7 @@ static void bkg_sort( background_image_t *arr );
 
 
 /**
- * @brief Initilaizes background stars.
+ * @brief Initializes background stars.
  *
  *    @param n Number of stars to add (stars per 800x640 screen).
  */
@@ -157,6 +158,9 @@ void background_moveStars( double x, double y )
 {
    star_x += (GLfloat) x;
    star_y += (GLfloat) y;
+
+   /* Puffs also need moving. */
+   nebu_movePuffs( x, y );
 }
 
 
@@ -219,7 +223,7 @@ void background_renderStars( const double dt )
             star_vertex[4*i+0] = star_vertex[4*i+0] + star_x*b;
             star_vertex[4*i+1] = star_vertex[4*i+1] + star_y*b;
 
-            /* check boundries */
+            /* check boundaries */
             if (star_vertex[4*i+0] > hw)
                star_vertex[4*i+0] -= w;
             else if (star_vertex[4*i+0] < -hw)
@@ -285,9 +289,8 @@ void background_renderStars( const double dt )
       glDrawArrays( GL_POINTS, 0, nstars ); /* This second pass is when the lines are very short that they "lose" intensity. */
       glShadeModel(GL_FLAT);
    }
-   else {
+   else
       glDrawArrays( GL_POINTS, 0, nstars );
-   }
 
    /* Clear star movement. */
    star_x = 0.;
@@ -492,10 +495,9 @@ int background_load( const char *name )
 #endif /* DEBUGGING */
 
    /* Run Lua. */
-   ret = 0;
    lua_getglobal(L,"background");
    ret = lua_pcall(L, 0, 0, errf);
-   if (ret != 0) { /* error has occured */
+   if (ret != 0) { /* error has occurred */
       err = (lua_isstring(L,-1)) ? lua_tostring(L,-1) : NULL;
       WARN("Background -> 'background' : %s",
             (err) ? err : "unknown error");
@@ -581,20 +583,9 @@ void background_free (void)
    }
 
    /* Free the Lua. */
-   if (bkg_cur_L == bkg_def_L) {
-      if (bkg_cur_L != NULL)
-         lua_close( bkg_cur_L );
-      bkg_cur_L = NULL;
-      bkg_def_L = NULL;
-   }
-   else {
-      if (bkg_cur_L != NULL)
-         lua_close( bkg_cur_L );
-      if (bkg_def_L != NULL)
-         lua_close( bkg_def_L );
-      bkg_cur_L = NULL;
-      bkg_def_L = NULL;
-   }
+   if (bkg_cur_L != NULL)
+      lua_close( bkg_cur_L );
+   bkg_cur_L = NULL;
 
    /* Destroy VBOs. */
    if (star_vertexVBO != NULL) {

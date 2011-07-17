@@ -39,6 +39,7 @@ else -- default english
     osd_msg = {}
     osd_msg[1] = "Fly to %s and land on %s"
     osd_msg[2] = "Return to %s with your findings"
+    osd_msg["__save"] = true 
 end
 
 
@@ -72,7 +73,8 @@ function accept ()
    misn.setTitle(misn_title)
    misn.setReward( misn_reward )
    misn.setDesc( string.format(misn_desc[1], misn_target:name(), misn_target_sys:name() ))
-   osd_msg[1] = osd_msg[1]:format(misn_target:name(), misn_target_sys:name())
+   osd_msg[1] = osd_msg[1]:format(misn_target_sys:name(), misn_target:name())
+   osd_msg[2] = osd_msg[2]:format(misn_base:name())
    misn.osdCreate(misn_title, osd_msg)
 
    tk.msg( title[1], string.format(text[2], misn_target:name()) )
@@ -92,7 +94,7 @@ function land()
       tk.msg( title[2], text[6] )
 
       -- Rewards
-      player.modFaction("Empire",5)
+      faction.modPlayerSingle("Empire",5)
       player.pay( 100000 )
 
       misn.finish(true)

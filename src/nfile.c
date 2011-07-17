@@ -7,7 +7,7 @@
  *
  * @brief Handles read/write abstractions to the users directory.
  *
- * @todo add support for windows and mac os.
+ * @todo Add support for Windows and Mac OS X.
  */
 
 
@@ -39,11 +39,11 @@
 
 
 
-static char naev_base[PATH_MAX] = "\0"; /**< Stores naev's base path. */
+static char naev_base[PATH_MAX] = "\0"; /**< Stores Naev's base path. */
 /**
- * @brief Gets naev's base path (for saves and such).
+ * @brief Gets Naev's base path (for saves and such).
  *
- *    @return The base path to naev.
+ *    @return The base path to Naev.
  */
 char* nfile_basePath (void)
 {
@@ -127,34 +127,19 @@ int nfile_dirMakeExist( const char* path, ... )
       va_end(ap);
    }
 
-#if HAS_POSIX
-   struct stat buf;
-   int ret;
+   /* Check if it exists. */
+   if (nfile_dirExists(file))
+      return 0;
 
-   ret = stat(file,&buf);
-   /* Check to see if there was a messed up error. */
-   if (ret && (errno != ENOENT)) {
-      WARN("Unable to stat '%s': %s", file, strerror(errno));
+#if HAS_POSIX
+   if (mkdir(file, S_IRWXU | S_IRWXG | S_IRWXO) < 0) {
+      WARN("Dir '%s' does not exist and unable to create: %s", file, strerror(errno));
       return -1;
    }
-   /* Normal error/doesn't exist. */
-   else if ((ret && (errno == ENOENT)) || !S_ISDIR(buf.st_mode))
-      if (mkdir(file, S_IRWXU | S_IRWXG | S_IRWXO) < 0) {
-         WARN("Dir '%s' does not exist and unable to create: %s", file, strerror(errno));
-         return -1;
-      }
 #elif HAS_WIN32
-   DIR *d;
-
-   d = opendir(file);
-   if (d==NULL) {
-      if (!CreateDirectory(file, NULL))  {
-         WARN("Dir '%s' does not exist and unable to create: %s", file, strerror(errno));
-         return -1;
-      }
-   }
-   else {
-      closedir(d);
+   if (!CreateDirectory(file, NULL))  {
+      WARN("Dir '%s' does not exist and unable to create: %s", file, strerror(errno));
+      return -1;
    }
 #else
 #error "Feature needs implementation on this Operating System for Naev to work."
@@ -165,9 +150,34 @@ int nfile_dirMakeExist( const char* path, ... )
 
 
 /**
+ * @brief Checks to see if a directory exists.
+ */
+int nfile_dirExists( const char* path, ... )
+{
+   char file[PATH_MAX];
+   va_list ap;
+   DIR *d;
+
+   if (path == NULL)
+      return -1;
+   else { /* get the message */
+      va_start(ap, path);
+      vsnprintf(file, PATH_MAX, path, ap);
+      va_end(ap);
+   }
+
+   d = opendir(file);
+   if (d==NULL)
+      return 0;
+   closedir(d);
+   return 1;
+}
+
+
+/**
  * @brief Checks to see if a file exists.
  *
- *    @param path printf formatted string pointing to the file to check for existance.
+ *    @param path printf formatted string pointing to the file to check for existence.
  *    @return 1 if file exists, 0 if it doesn't or -1 on error.
  */
 int nfile_fileExists( const char* path, ... )

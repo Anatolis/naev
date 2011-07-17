@@ -11,6 +11,7 @@
 
 include "scripts/proximity.lua"
 include "scripts/fleethelper.lua"
+include "dat/missions/empire/common.lua"
 
 lang = naev.lang()
 if lang == "es" then
@@ -48,6 +49,7 @@ else -- default english
    osd_msg[2] = "Defeat the Starfire"
    osd_msg2alt = "Defeat the Starfire and the Trinity"
    osd_msg[3] = "Report back"
+   osd_msg["__save"] = true
 end
 
 
@@ -137,6 +139,7 @@ function jump ()
             fleetC[#fleetC + 1] = pilot.add("Starfire", nil, fleetCpos)[1]
             hook.pilot(fleetC[#fleetC], "death", "col_dead")
             fleetC[#fleetC]:setNodisable()
+            fleetC[#fleetC]:setFaction( "Collective" )
             if var.peek("trinity") then
                 fleetC[#fleetC + 1] = pilot.add("Trinity", nil, fleetCpos + vec2.new(300, 0))[1]
                 hook.pilot(fleetC[#fleetC], "death", "col_dead")
@@ -268,8 +271,10 @@ function land ()
       tk.msg( title[3], string.format(text[3], misn_base:name()) )
 
       -- Rewards
-      player.modFaction("Empire",5)
       diff.apply("collective_dead")
+      -- This was the last mission in the minor campaign, so bump the reputation cap.
+      emp_modReputation( 10 )
+      faction.modPlayerSingle("Empire",5)
       player.pay( 500000 ) -- 500k
 
       tk.msg( title[3], text[4] )

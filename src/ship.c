@@ -35,7 +35,7 @@
 #define SHIP_EXT     ".png" /**< Ship graphics extension format. */
 #define SHIP_ENGINE  "_engine" /**< Engine graphic extension. */
 #define SHIP_TARGET  "_target" /**< Target graphic extension. */
-#define SHIP_COMM    "_comm" /**< Communicatio graphic extension. */
+#define SHIP_COMM    "_comm" /**< Communication graphic extension. */
 
 #define VIEW_WIDTH   300 /**< Ship view window width. */
 #define VIEW_HEIGHT  300 /**< Ship view window height. */
@@ -137,15 +137,15 @@ int ship_compareTech( const void *arg1, const void *arg2 )
 
    /* Compare class. */
    if (s1->class < s2->class)
-      return -1;
-   else if (s1->class > s2->class)
       return +1;
+   else if (s1->class > s2->class)
+      return -1;
 
    /* Compare price. */
    if (s1->price < s2->price)
-      return -1;
-   else if (s1->price > s2->price)
       return +1;
+   else if (s1->price > s2->price)
+      return -1;
 
    /* Same. */
    return strcmp( s1->name, s2->name );
@@ -367,7 +367,7 @@ int ship_statsDesc( ShipStats *s, char *buf, int len, int newline, int pilot )
    DESC_ADD(s->ew_hide,"Cloaking");
    /* Military Stuff. */
    DESC_ADD(s->heat_dissipation,"Heat Dissipation");
-   /* Bomber STuff. */
+   /* Bomber Stuff. */
    DESC_ADD(s->launch_rate,"Launch Rate");
    DESC_ADD(s->launch_range,"Launch Range");
    DESC_ADD(s->jam_counter,"Jam Countermeasures");
@@ -453,7 +453,7 @@ static int ship_genTargetGFX( Ship *temp, SDL_Surface *surface, int sx, int sy )
 #endif /* SDL_VERSION_ATLEAST(1,3,0) */
 
    if (gfx == NULL) {
-      WARN( "Unable to create ship '%s' targetting surface.", temp->name );
+      WARN( "Unable to create ship '%s' targeting surface.", temp->name );
       return -1;
    }
 
@@ -811,9 +811,6 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
 
    /* Post processing. */
    temp->dmg_absorb   /= 100.;
-   temp->armour_regen /= 60.;
-   temp->shield_regen /= 60.;
-   temp->energy_regen /= 60.;
    temp->turn         *= M_PI / 180.; /* Convert to rad. */
    temp->thrust *= temp->mass;
 
@@ -961,90 +958,3 @@ void ships_free (void)
    array_free(ship_stack);
    ship_stack = NULL;
 }
-
-
-/**
- * @brief Used to visualize the ships stats.
- *
- * @todo Take into account outfits or something like that.
- *
- *    @param unused Unused.
- *    @param shipname Ship ot view the stats of.
- */
-void ship_view( unsigned int unused, char* shipname )
-{
-   (void) unused;
-   Ship *s;
-   char buf[1024];
-   unsigned int wid;
-   int h;
-   s = ship_get( shipname );
-   snprintf(buf, 1024,
-         "Name:\n"
-         "Class:\n"
-         "Fabricator:\n"
-         "\n"
-         "Crew:\n"
-         "CPU:\n"
-         "Mass:\n"
-         "\n"
-         "Weapon slots:\n"
-         "Utility slots:\n"
-         "Structure slots:\n"
-         "\n"
-         "Thrust:\n"
-         "Max Speed:\n"
-         "Turn:\n"
-         "\n"
-         "Shield:\n"
-         "Armour:\n"
-         "Energy:\n"
-         "\n"
-         "Cargo Space:\n"
-         "Fuel:\n"
-         );
-   h = gl_printHeightRaw( &gl_smallFont, VIEW_WIDTH, buf );
-
-   wid = window_create( shipname, -1, -1, VIEW_WIDTH, h+60+BUTTON_HEIGHT );
-   window_addText( wid, 20, -40, VIEW_WIDTH, h,
-         0, "txtLabel", &gl_smallFont, &cDConsole, buf );
-   snprintf( buf, 1024,
-         "%s\n" /* Name */
-         "%s\n" /* Class */
-         "%s\n" /* Fabricator */
-         "\n"
-         "%d\n" /* Crew */
-         "%.0f TFlops\n" /* CPU */
-         "%.0f Tons\n" /* Mass */
-         "\n"
-         "%d\n" /* Weapon slots */
-         "%d\n" /* Utility slots */
-         "%d\n" /* Structure slots */
-         "\n"
-         "%.0f MN/ton\n" /* Thrust */
-         "%.0f M/s\n" /* Speed */
-         "%.0f Grad/s\n" /* Turn */
-         "\n"
-         "%.0f MJ (%.1f MJ/s)\n" /* Shield */
-         "%.0f MJ (%.1f MJ/s)\n" /* Armour */
-         "%.0f MJ (%.1f MJ/s)\n" /* Energy */
-         "\n"
-         "%.0f Tons\n" /* Cargo */
-         "%d Units\n" /* Fuel */
-         , s->name, ship_class(s), s->fabricator,
-         s->crew, s->cpu, s->mass,
-         s->outfit_nweapon, s->outfit_nutility, s->outfit_nstructure,
-         s->thrust/s->mass, s->speed, s->turn,
-         s->shield, s->shield_regen, s->armour, s->armour_regen,
-         s->energy, s->energy_regen,
-         s->cap_cargo, s->fuel );
-   window_addText( wid, 120, -40, VIEW_WIDTH-140, h,
-         0, "txtProperties", &gl_smallFont, &cBlack, buf );
-
-   /* close button */
-   snprintf( buf, 37, "close%s", shipname );
-   window_addButton( wid, -20, 20,
-         BUTTON_WIDTH, BUTTON_HEIGHT,
-         buf, "Close", window_close );
-}
-

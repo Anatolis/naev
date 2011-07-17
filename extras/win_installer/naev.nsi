@@ -19,7 +19,8 @@
 !define VERSION "0.5.0"
 !define URL "http://naev.org"
 Name "Naev"
-OutFile "Naev-${VERSION}-win32.exe"
+OutFile "naev-${VERSION}-win32.exe"
+;OutFile "naev-${VERSION}-win64.exe"
 
 ;--------------------------------
 ;Variables
@@ -113,8 +114,8 @@ SectionEnd
 
 Section "Naev Data (Download)" DataSection
 
-    AddSize 137076 ;Size (kB) of Naev 0.4.2 ndata
-    NSISdl::download "http://naev.googlecode.com/files/ndata-${VERSION}" "ndata"
+    AddSize 202159 ;Size (kB) of Naev ndata
+    NSISdl::download "http://voxel.dl.sourceforge.net/project/naev/naev-${VERSION}/ndata-${VERSION}" "ndata"
 
 SectionEnd
 

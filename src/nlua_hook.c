@@ -49,6 +49,7 @@ static int hook_commsell( lua_State *L );
 static int hook_input( lua_State *L );
 static int hook_mouse( lua_State *L );
 static int hook_safe( lua_State *L );
+static int hook_standing( lua_State *L );
 static int hook_pilot( lua_State *L );
 static const luaL_reg hook_methods[] = {
    { "rm", hookL_rm },
@@ -66,6 +67,7 @@ static const luaL_reg hook_methods[] = {
    { "input", hook_input },
    { "mouse", hook_mouse },
    { "safe", hook_safe },
+   { "standing", hook_standing },
    { "pilot", hook_pilot },
    {0,0}
 }; /**< Hook Lua methods. */
@@ -79,7 +81,7 @@ static unsigned int hook_generic( lua_State *L, const char* stack, double ms, in
 
 
 /**
- * @brief Loads the hook lua library.
+ * @brief Loads the hook Lua library.
  *    @param L Lua state.
  *    @return 0 on success.
  */
@@ -176,7 +178,7 @@ static int hookL_setarg( lua_State *L, unsigned int hook, int ind )
 
 
 /**
- * @brief Unsets a lua argument.
+ * @brief Unsets a Lua argument.
  */
 void hookL_unsetarg( lua_State *L, unsigned int hook )
 {
@@ -195,7 +197,7 @@ void hookL_unsetarg( lua_State *L, unsigned int hook )
  * @brief Gets a Lua argument for a hook.
  *
  *    @param L Lua state to put argument in.
- *    @param hook Hook te get argument of.
+ *    @param hook Hook to get argument of.
  *    @return 0 on success.
  */
 int hookL_getarg( lua_State *L, unsigned int hook )
@@ -375,7 +377,7 @@ static int hook_enter( lua_State *L )
 /**
  * @brief Hooks the function to the player hailing any ship (not a planet).
  *
- * The hook recieves a single parameter which is the ship being hailed.
+ * The hook receives a single parameter which is the ship being hailed.
  *
  *    @luaparam funcname Name of function to run when hook is triggered.
  *    @luaparam arg Argument to pass to hook.
@@ -392,7 +394,7 @@ static int hook_hail( lua_State *L )
 /**
  * @brief Hooks the function to the player boarding any ship.
  *
- * The hook recieves a single parameter which is the ship being boarded.
+ * The hook receives a single parameter which is the ship being boarded.
  *
  *    @luaparam funcname Name of function to run when hook is triggered.
  *    @luaparam arg Argument to pass to hook.
@@ -409,7 +411,7 @@ static int hook_board( lua_State *L )
 /**
  * @brief Hooks a timer.
  *
- * The hook recieves only the optional argument.
+ * The hook receives only the optional argument.
  *
  *    @luaparam ms Milliseconds to delay.
  *    @luaparam funcname Name of function to run when hook is triggered.
@@ -429,7 +431,7 @@ static int hook_timer( lua_State *L )
 /**
  * @brief Hooks a date change with custom resolution.
  *
- * The hook recieves only the optional argument.
+ * The hook receives only the optional argument.
  *
  * @usage hook.date( time.create( 0, 0, 1000 ), "some_func", nil ) -- Hooks with a 1000 STU resolution
  *
@@ -451,7 +453,7 @@ static int hook_date( lua_State *L )
 /**
  * @brief Hooks the function to the player buying any sort of commodity.
  *
- * The hook recieves the name of the commodity and the quantity being bought.
+ * The hook receives the name of the commodity and the quantity being bought.
  *
  *    @luaparam funcname Name of function to run when hook is triggered.
  *    @luaparam arg Argument to pass to hook.
@@ -468,7 +470,7 @@ static int hook_commbuy( lua_State *L )
 /**
  * @brief Hooks the function to the player selling any sort of commodity.
  *
- * The hook recieves the name of the commodity and the quantity being bought.
+ * The hook receives the name of the commodity and the quantity being bought.
  *
  *    @luaparam funcname Name of function to run when hook is triggered.
  *    @luaparam arg Argument to pass to hook.
@@ -520,6 +522,25 @@ static int hook_mouse( lua_State *L )
    return 1;
 }
 /**
+ * @brief Hooks the function to any faction standing change.
+ *
+ * The parameters passed to the function are faction whose standing is being
+ * changed and the amount changed:<br/>
+ * function f( faction, change, args )
+ *
+ *    @luaparam funcname Name of function to run when hook is triggered.
+ *    @luaparam arg Argument to pass to hook.
+ *    @luareturn Hook identifier.
+ * @luafunc standing( funcname, arg )
+ */
+static int hook_standing( lua_State *L )
+{
+   unsigned int h;
+   h = hook_generic( L, "standing", 0., 1, 0 );
+   lua_pushnumber( L, h );
+   return 1;
+}
+/**
  * @brief Hook run at the end of each frame.
  *
  * This hook is a good way to do possibly breaking stuff like for example player.teleport().
@@ -539,7 +560,7 @@ static int hook_safe( lua_State *L )
 /**
  * @brief Hooks the function to a specific pilot.
  *
- * You can hook to different actions.  Curently hook system only supports:<br />
+ * You can hook to different actions.  Currently hook system only supports:<br />
  * <ul>
  *    <li> "death" : triggered when pilot dies (before marked as dead). <br />
  *    <li> "exploded" : triggered when pilot has died and the final explosion has begun. <br />

@@ -32,7 +32,6 @@
 #include "mission.h"
 #include "ntime.h"
 #include "save.h"
-#include "music.h"
 #include "map.h"
 #include "news.h"
 #include "escort.h"
@@ -224,9 +223,6 @@ static void commodity_exchange_open( unsigned int wid )
    window_addList( wid, 20, -40,
          w-LAND_BUTTON_WIDTH-60, h-80-LAND_BUTTON_HEIGHT,
          "lstGoods", goods, ngoods, 0, commodity_update );
-
-   /* update */
-   commodity_update(wid, NULL);
 }
 /**
  * @brief Updates the commodity window.
@@ -306,7 +302,7 @@ static void commodity_buy( unsigned int wid, char* str )
    hparam[0].u.str   = comname;
    hparam[1].type    = HOOK_PARAM_NUMBER;
    hparam[1].u.num   = q;
-   hparam[2].type    = HOOK_PARAM_SENTINAL;
+   hparam[2].type    = HOOK_PARAM_SENTINEL;
    hooks_runParam( "comm_buy", hparam );
    if (land_takeoff)
       takeoff(1);
@@ -343,7 +339,7 @@ static void commodity_sell( unsigned int wid, char* str )
    hparam[0].u.str   = comname;
    hparam[1].type    = HOOK_PARAM_NUMBER;
    hparam[1].u.num   = q;
-   hparam[2].type    = HOOK_PARAM_SENTINAL;
+   hparam[2].type    = HOOK_PARAM_SENTINEL;
    hooks_runParam( "comm_sell", hparam );
    if (land_takeoff)
       takeoff(1);
@@ -460,14 +456,11 @@ void land_errDialogueBuild( const char *fmt, ... )
       va_end(ap);
    }
 
-   if (errorlist_ptr == NULL) { /* Initialize on first run. */
+   if (errorlist_ptr == NULL) /* Initialize on first run. */
       errorappend = snprintf( errorlist, sizeof(errorlist), "%s", errorreason );
-      errorlist_ptr = errorlist;
-   }
-   else { /* Append newest error to the existing list. */
+   else /* Append newest error to the existing list. */
       snprintf( &errorlist[errorappend],  sizeof(errorlist)-errorappend, "\n%s", errorreason );
-      errorlist_ptr = errorlist;
-   }
+   errorlist_ptr = errorlist;
 }
 
 
@@ -533,7 +526,7 @@ static void bar_open( unsigned int wid )
 }
 
 /**
- * @brief Generates the misison list for the bar.
+ * @brief Generates the mission list for the bar.
  *
  *    @param wid Window to create mission list for.
  */
@@ -614,9 +607,8 @@ static void bar_update( unsigned int wid, char* str )
    if (pos==0) { /* News selected. */
       if (!widget_exists(wid, "cstNews")) {
          /* Destroy portrait. */
-         if (widget_exists(wid, "imgPortrait")) {
+         if (widget_exists(wid, "imgPortrait"))
             window_destroyWidget(wid, "imgPortrait");
-         }
 
          /* Disable button. */
          window_disableButton( wid, "btnApproach" );
@@ -636,16 +628,14 @@ static void bar_update( unsigned int wid, char* str )
    pos--;
 
    /* Destroy news widget if needed. */
-   if (widget_exists(wid, "cstNews")) {
+   if (widget_exists(wid, "cstNews"))
       window_destroyWidget( wid, "cstNews" );
-   }
 
    /* Create widgets if needed. */
-   if (!widget_exists(wid, "imgPortrait")) {
+   if (!widget_exists(wid, "imgPortrait"))
       window_addImage( wid, iw + 40 + (w-iw-60-PORTRAIT_WIDTH)/2,
             -(40 + dh + 40 + gl_defFont.h + 20 + PORTRAIT_HEIGHT),
             0, 0, "imgPortrait", NULL, 1 );
-   }
 
    /* Enable button. */
    window_enableButton( wid, "btnApproach" );
@@ -816,14 +806,14 @@ static void misn_accept( unsigned int wid, char* str )
       pos = toolkit_getListPos( wid, "lstMission" );
       misn = &mission_computer[pos];
       ret = mission_accept( misn );
-      if ((ret==0) || (ret==2) || (ret==-1)) { /* successs in accepting the mission */
+      if ((ret==0) || (ret==2) || (ret==-1)) { /* success in accepting the mission */
          if (ret==-1)
             mission_cleanup( &mission_computer[pos] );
          memmove( &mission_computer[pos], &mission_computer[pos+1],
                sizeof(Mission) * (mission_ncomputer-pos-1) );
          mission_ncomputer--;
 
-         /* Regeneratie list. */
+         /* Regenerate list. */
          misn_genList(wid, 0);
       }
 
@@ -849,7 +839,7 @@ static void misn_genList( unsigned int wid, int first )
    window_dimWindow( wid, &w, &h );
 
    /* list */
-   j = 1; /* make sure we don't accidently free the memory twice. */
+   j = 1; /* make sure we don't accidentally free the memory twice. */
    misn_names = NULL;
    if (mission_ncomputer > 0) { /* there are missions */
       misn_names = malloc(sizeof(char*) * mission_ncomputer);
@@ -868,9 +858,6 @@ static void misn_genList( unsigned int wid, int first )
    window_addList( wid, 20, -40,
          w/2 - 30, h/2 - 35,
          "lstMission", misn_names, j, 0, misn_update );
-
-   /* Update the list. */
-   misn_update( wid, NULL );
 }
 /**
  * @brief Updates the mission list.
@@ -1104,7 +1091,7 @@ void land_genWindows( int load, int changetab )
    land_wid = window_create( p->name, -1, -1, w, h );
    window_onClose( land_wid, land_cleanupWindow );
 
-   /* Set window map to invald. */
+   /* Set window map to invalid. */
    for (i=0; i<LAND_NUMWINDOWS; i++)
       land_windowsMap[i] = -1;
 
@@ -1165,9 +1152,9 @@ void land_genWindows( int load, int changetab )
       landed = 1;
       music_choose("land"); /* Must be before hooks in case hooks change music. */
       if (!load) {
-         events_trigger( EVENT_TRIGGER_LAND );
          hooks_run("land");
       }
+      events_trigger( EVENT_TRIGGER_LAND );
 
       /* 3) Generate computer and bar missions. */
       if (planet_hasService(land_planet, PLANET_SERVICE_MISSIONS))
@@ -1187,7 +1174,7 @@ void land_genWindows( int load, int changetab )
    /* Outfits. */
    if (planet_hasService(land_planet, PLANET_SERVICE_OUTFITS))
       outfits_open( land_getWid(LAND_WINDOW_OUTFITS) );
-   /* Shipard. */
+   /* Shipyard. */
    if (planet_hasService(land_planet, PLANET_SERVICE_SHIPYARD))
       shipyard_open( land_getWid(LAND_WINDOW_SHIPYARD) );
    /* Equipment. */
@@ -1403,15 +1390,14 @@ static void land_changeTab( unsigned int wid, char *wgt, int tab )
          }
 
          /* Clear markers if closing Mission Computer. */
-         if (i != LAND_WINDOW_MISSION) {
+         if (i != LAND_WINDOW_MISSION)
             space_clearComputerMarkers();
-         }
 
          break;
       }
    }
 
-   /* Check land missions - aways run hooks. */
+   /* Check land missions - always run hooks. */
    /*if ((to_visit != 0) && !has_visited(to_visit)) {*/
    {
       /* Run hooks, run after music in case hook wants to change music. */
@@ -1479,9 +1465,8 @@ void takeoff( int delay )
    player.p->nav_hyperspace = h;
 
    /* cleanup */
-   if (save_all() < 0) { /* must be before cleaning up planet */
-      dialogue_alert( "Failed to save game!  You should exit and check the log to see what happened and then file a bug report!" );
-   }
+   if (save_all() < 0) /* must be before cleaning up planet */
+      dialogue_alert( "Failed to save game! You should exit and check the log to see what happened and then file a bug report!" );
 
    /* time goes by, triggers hook before takeoff */
    if (delay)

@@ -39,8 +39,6 @@
 #define SPFX_GFX_PRE    "gfx/spfx/" /**< location of the graphic */
 #define SPFX_GFX_SUF    ".png" /**< Suffix of graphics. */
 
-#define CHUNK_SIZE      128 /**< Chunk size to allocate spfx bases. */
-
 #define SPFX_CHUNK_MAX  16384 /**< Maximum chunk to alloc when needed */
 #define SPFX_CHUNK_MIN  256 /**< Minimum chunk to alloc when needed */
 
@@ -52,7 +50,7 @@
 
 
 /*
- * special hardcoded special effects
+ * special hard-coded special effects
  */
 /* shake aka rumble */
 static int shake_set = 0; /**< Is shake set? */
@@ -217,7 +215,7 @@ int spfx_get( char* name )
  *
  *    @return 0 on success.
  *
- * @todo Make spfx not hardcoded.
+ * @todo Make spfx not hard-coded.
  */
 int spfx_load (void)
 {
@@ -253,7 +251,10 @@ int spfx_load (void)
 
          spfx_neffects++;
          if (spfx_neffects > mem) {
-            mem += CHUNK_SIZE;
+            if (mem == 0)
+               mem = SPFX_CHUNK_MIN;
+            else
+               mem *= 2;
             spfx_effects = realloc(spfx_effects, sizeof(SPFX_Base)*mem);
          }
          spfx_base_parse( &spfx_effects[spfx_neffects-1], node );
@@ -430,7 +431,7 @@ void spfx_update( const double dt )
  * @brief Updates an individual spfx.
  *
  *    @param layer Layer the spfx is on.
- *    @param nlayer Pointer to the assosciated nlayer.
+ *    @param nlayer Pointer to the associated nlayer.
  *    @param dt Current delta tick.
  */
 static void spfx_update_layer( SPFX *layer, int *nlayer, const double dt )

@@ -65,6 +65,7 @@
 #include "sound.h"
 #include "music.h"
 #include "spfx.h"
+#include "damagetype.h"
 #include "economy.h"
 #include "menu.h"
 #include "mission.h"
@@ -119,7 +120,7 @@ static int fps_skipped        = 0; /**< Skipped last frame? */
 static double fps_dt    = 1.; /**< Display fps accumulator. */
 static double game_dt   = 0.; /**< Current game deltatick (uses dt_mod). */
 static double real_dt   = 0.; /**< Real deltatick. */
-const double fps_min    = 1./50.; /**< Minimum fps to run at. */
+const double fps_min    = 1./30.; /**< Minimum fps to run at. */
 static double fps_x     =  15.; /**< FPS X position. */
 static double fps_y     = -15.; /**< FPS Y position. */
 
@@ -541,6 +542,8 @@ void load_all (void)
    events_load(); /* no dep */
    loadscreen_render( 6./LOADING_STAGES, "Loading Special Effects..." );
    spfx_load(); /* no dep */
+   loadscreen_render( 6./LOADING_STAGES, "Loading Damage Types..." );
+   dtype_load(); /* no dep */
    loadscreen_render( 7./LOADING_STAGES, "Loading Outfits..." );
    outfit_load(); /* dep for ships */
    loadscreen_render( 8./LOADING_STAGES, "Loading Ships..." );
@@ -554,7 +557,6 @@ void load_all (void)
    background_init();
    player_init(); /* Initialize player stuff. */
    loadscreen_render( 1., "Loading Completed!" );
-   xmlCleanupParser(); /* Only needed to be run after all the loading is done. */
 }
 /**
  * @brief Unloads all data, simplifies main().
@@ -568,7 +570,7 @@ void unload_all (void)
    pilots_free(); /* frees the pilots, they were locked up :( */
    cond_exit(); /* destroy conditional subsystem. */
    land_exit(); /* Destroys landing vbo and friends. */
-   npc_clear(); /* In case exitting while landed. */
+   npc_clear(); /* In case exiting while landed. */
    background_free(); /* Destroy backgrounds. */
    load_free(); /* Clean up loading game stuff stuff. */
    economy_destroy(); /* must be called before space_exit */
@@ -578,6 +580,7 @@ void unload_all (void)
    ships_free();
    outfit_free();
    spfx_free(); /* gets rid of the special effect */
+   dtype_free(); /* gets rid of the damage types */
    missions_free();
    events_cleanup(); /* Clean up events. */
    factions_free();
@@ -624,17 +627,16 @@ void main_loop( int update )
 }
 
 
-#if HAS_POSIX
+#if HAS_POSIX && defined(CLOCK_MONOTONIC)
 static struct timespec global_time; /**< Global timestamp for calculating delta ticks. */
 static int use_posix_time; /**< Whether or not to use posix time. */
-#endif /* HAS_POSIX */
+#endif /* HAS_POSIX && defined(CLOCK_MONOTONIC) */
 /**
  * @brief Initializes the fps engine.
  */
 static void fps_init (void)
 {
-#if HAS_POSIX
-#ifdef CLOCK_MONOTONIC
+#if HAS_POSIX && defined(CLOCK_MONOTONIC)
    use_posix_time = 1;
    /* We must use clock_gettime here instead of gettimeofday mainly because this
     * way we are not influenced by changes to the time source like say ntp which
@@ -642,9 +644,8 @@ static void fps_init (void)
    if (clock_gettime(CLOCK_MONOTONIC, &global_time)==0)
       return;
    WARN("clock_gettime failed, disabling posix time.");
-#endif /* CLOCK_MONOTONIC */
    use_posix_time = 0;
-#endif /* HAS_POSIX */
+#endif /* HAS_POSIX && defined(CLOCK_MONOTONIC) */
    time_ms  = SDL_GetTicks();
 }
 /**
@@ -657,8 +658,7 @@ static double fps_elapsed (void)
    double dt;
    unsigned int t;
 
-#if HAS_POSIX
-#ifdef CLOCK_MONOTONIC
+#if HAS_POSIX && defined(CLOCK_MONOTONIC)
    struct timespec ts;
 
    if (use_posix_time) {
@@ -670,8 +670,7 @@ static double fps_elapsed (void)
       }
       WARN( "clock_gettime failed!" );
    }
-#endif /* CLOCK_MONOTONIC */
-#endif /* HAS_POSIX */
+#endif /* HAS_POSIX && defined(CLOCK_MONOTONIC) */
 
    t        = SDL_GetTicks();
    dt       = (double)(t - time_ms); /* Get the elapsed ms. */
@@ -729,7 +728,7 @@ static void update_all (void)
       fps_skipped = 1;
       return;
    }
-   else if (game_dt > fps_min) { /* we'll force a minimum of 50 FPS */
+   else if (game_dt > fps_min) { /* we'll force a minimum FPS for physics to work alright. */
 
       /* Number of frames. */
       nf = ceil( game_dt / fps_min );
@@ -794,7 +793,7 @@ void update_routine( double dt, int enter_sys )
  * Blitting order (layers):
  *   - BG
  *     - stars and planets
- *     - background player stuff (planet targetting)
+ *     - background player stuff (planet targeting)
  *     - background particles
  *     - back layer weapons
  *   - N
@@ -986,7 +985,7 @@ int naev_versionParse( int version[3], char *buf, int nbuf )
 
 
 /**
- * @brief Comparse the version against the current naev version.
+ * @brief Compares the version against the current naev version.
  *
  *    @return positive if version is newer or negative if version is older.
  */
@@ -1005,7 +1004,7 @@ int naev_versionCompare( int version[3] )
    if (VREV > version[2])
       return -1;
    else if (VREV < version[2])
-      return +2;
+      return +1;
 
    return 0;
 }
@@ -1143,7 +1142,7 @@ static void debug_sigHandler( int sig, siginfo_t *info, void *unused )
    num      = backtrace(buf, 64);
    symbols  = backtrace_symbols(buf, num);
 
-   DEBUG("Naev recieved %s!",
+   DEBUG("Naev received %s!",
          debug_sigCodeToStr(info->si_signo, info->si_code) );
    for (i=0; i<num; i++) {
       if (abfd != NULL)
@@ -1210,7 +1209,7 @@ static void debug_sigInit (void)
 
 
 /**
- * @brief Closes the SignalHandler for linux.
+ * @brief Closes the SignalHandler for Linux.
  */
 static void debug_sigClose (void)
 {

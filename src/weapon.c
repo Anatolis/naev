@@ -41,9 +41,8 @@
 
 /* Weapon status */
 #define WEAPON_STATUS_OK         0 /**< Weapon is fine */
-#define WEAPON_STATUS_LOCKEDON   1 /**< Weapon is locked on. */
-#define WEAPON_STATUS_JAMMED     2 /**< Got jammed */
-#define WEAPON_STATUS_UNJAMMED   3 /**< Survived jamming */
+#define WEAPON_STATUS_JAMMED     1 /**< Got jammed */
+#define WEAPON_STATUS_UNJAMMED   2 /**< Survived jamming */
 
 
 /*
@@ -69,7 +68,7 @@ typedef struct Weapon_ {
 
    double dam_mod; /**< Damage modifier. */
    int voice; /**< Weapon's voice. */
-   double lockon; /**< some weapons have a lockon delay */
+   double exp_timer; /**< Explosion timer for beams. */
    double life; /**< Total life. */
    double timer; /**< mainly used to see when the weapon was fired */
    double anim; /**< Used for beam weapon graphics and others. */
@@ -93,7 +92,7 @@ static Weapon** wbackLayer = NULL; /**< behind pilots */
 static int nwbackLayer = 0; /**< number of elements */
 static int mwbacklayer = 0; /**< alloced memory size */
 /* behind player layer */
-static Weapon** wfrontLayer = NULL; /**< infront of pilots, behind player */
+static Weapon** wfrontLayer = NULL; /**< in front of pilots, behind player */
 static int nwfrontLayer = 0; /**< number of elements */
 static int mwfrontLayer = 0; /**< alloced memory size */
 
@@ -328,12 +327,8 @@ static void think_seeker( Weapon* w, const double dt )
 
    /* Handle by status. */
    switch (w->status) {
-      case WEAPON_STATUS_OK:
-         if (w->lockon < 0.)
-            w->status = WEAPON_STATUS_LOCKEDON;
-         break;
 
-      case WEAPON_STATUS_LOCKEDON: /* Check to see if can get jammed */
+      case WEAPON_STATUS_OK: /* Check to see if can get jammed */
          if ((p->jam_range != 0.) &&  /* Target has jammer and weapon is in range */
                (vect_dist(&w->solid->pos,&p->solid->pos) < p->jam_range)) {
 
@@ -518,8 +513,6 @@ static void weapons_updateLayer( const double dt, const WeaponLayer layer )
          /* most missiles behave the same */
          case OUTFIT_TYPE_AMMO:
          case OUTFIT_TYPE_TURRET_AMMO:
-            if (w->lockon > 0.) /* decrement lockon */
-               w->lockon -= dt;
 
             w->timer -= dt;
             if (w->timer < 0.) {
@@ -589,13 +582,13 @@ static void weapons_updateLayer( const double dt, const WeaponLayer layer )
                weapon_destroy(w,layer);
                break;
             }
-            /* We use the lockon to tell when we have to create explosions. */
-            w->lockon -= dt;
-            if (w->lockon < 0.) {
-               if (w->lockon < -1.)
-                  w->lockon = 0.100;
+            /* We use the explosion timer to tell when we have to create explosions. */
+            w->exp_timer -= dt;
+            if (w->exp_timer < 0.) {
+               if (w->exp_timer < -1.)
+                  w->exp_timer = 0.100;
                else
-                  w->lockon = -1.;
+                  w->exp_timer = -1.;
             }
             break;
          default:
@@ -910,7 +903,7 @@ static void weapon_update( Weapon* w, const double dt, WeaponLayer layer )
       else if (weapon_isSmart(w)) {
 
          if ((pilot_stack[i]->id == w->target) &&
-               (w->status != WEAPON_STATUS_OK) && /* Must not be locking on. */
+               (w->status == WEAPON_STATUS_OK) &&
                weapon_checkCanHit(w,p) &&
                CollideSprite( gfx, w->sx, w->sy, &w->solid->pos,
                      p->ship->gfx_space, psx, psy,
@@ -969,7 +962,7 @@ static void weapon_hitAI( Pilot *p, Pilot *shooter, double dmg )
       /* Increment damage done to by player. */
       p->player_damage += dmg / (p->shield_max + p->armour_max);
 
-      /* If damage is over threshold, inform pilot or if is targetted. */
+      /* If damage is over threshold, inform pilot or if is targeted. */
       if ((p->player_damage > PILOT_HOSTILE_THRESHOLD) ||
             (shooter->target==p->id)) {
          /* Inform attacked. */
@@ -998,17 +991,19 @@ static void weapon_hitAI( Pilot *p, Pilot *shooter, double dmg )
 static void weapon_hit( Weapon* w, Pilot* p, WeaponLayer layer, Vector2d* pos )
 {
    Pilot *parent;
-   int spfx;
-   double damage, penetration;
-   DamageType dtype;
+   int s, spfx;
+   double damage;
    WeaponLayer spfx_layer;
-   int s;
+   Damage dmg;
+   const Damage *odmg;
 
    /* Get general details. */
-   parent = pilot_get(w->parent);
-   damage = w->strength * outfit_damage(w->outfit);
-   penetration = outfit_penetration(w->outfit);
-   dtype  = outfit_damageType(w->outfit);
+   odmg              = outfit_damage( w->outfit );
+   parent            = pilot_get( w->parent );
+   dmg.damage        = MAX( 0., w->dam_mod * w->strength * odmg->damage );
+   dmg.penetration   = odmg->penetration;
+   dmg.type          = odmg->type;
+   dmg.disable       = odmg->disable;
 
    /* Play sound if they have it. */
    s = outfit_soundHit(w->outfit);
@@ -1020,7 +1015,7 @@ static void weapon_hit( Weapon* w, Pilot* p, WeaponLayer layer, Vector2d* pos )
             w->solid->vel.y);
 
    /* Have pilot take damage and get real damage done. */
-   damage = pilot_hit( p, w->solid, w->parent, dtype, MAX(0.,w->dam_mod*damage), penetration );
+   damage = pilot_hit( p, w->solid, w->parent, &dmg );
 
    /* Get the layer. */
    spfx_layer = (p==player.p) ? SPFX_LAYER_FRONT : SPFX_LAYER_BACK;
@@ -1056,21 +1051,24 @@ static void weapon_hitBeam( Weapon* w, Pilot* p, WeaponLayer layer,
    (void) layer;
    Pilot *parent;
    int spfx;
-   double damage, penetration;
-   DamageType dtype;
+   double damage;
    WeaponLayer spfx_layer;
+   Damage dmg;
+   const Damage *odmg;
 
    /* Get general details. */
-   parent = pilot_get(w->parent);
-   damage = outfit_damage(w->outfit) * dt;
-   penetration = outfit_penetration(w->outfit);
-   dtype  = outfit_damageType(w->outfit);
+   odmg              = outfit_damage( w->outfit );
+   parent            = pilot_get( w->parent );
+   dmg.damage        = MAX( 0., w->dam_mod * w->strength * odmg->damage * dt );
+   dmg.penetration   = odmg->penetration;
+   dmg.type          = odmg->type;
+   dmg.disable       = odmg->disable;
 
    /* Have pilot take damage and get real damage done. */
-   damage = pilot_hit( p, w->solid, w->parent, dtype, MAX(0.,w->dam_mod*damage), penetration );
+   damage = pilot_hit( p, w->solid, w->parent, &dmg );
 
    /* Add sprite, layer depends on whether player shot or not. */
-   if (w->lockon == -1.) {
+   if (w->exp_timer == -1.) {
       /* Get the layer. */
       spfx_layer = (p==player.p) ? SPFX_LAYER_FRONT : SPFX_LAYER_BACK;
 
@@ -1085,11 +1083,11 @@ static void weapon_hitBeam( Weapon* w, Pilot* p, WeaponLayer layer,
             VX(p->solid->vel), VY(p->solid->vel), spfx_layer );
       spfx_add( spfx, pos[1].x, pos[1].y,
             VX(p->solid->vel), VY(p->solid->vel), spfx_layer );
-         w->lockon = -2;
-   }
+         w->exp_timer = -2;
 
-   /* Inform AI that it's been hit. */
-   weapon_hitAI( p, parent, damage );
+      /* Inform AI that it's been hit, to not saturate ai Lua with messages. */
+      weapon_hitAI( p, parent, damage );
+   }
 }
 
 
@@ -1114,9 +1112,8 @@ static double weapon_aimTurret( Weapon *w, const Outfit *outfit, const Pilot *pa
    double x, y, t, dist;
    double off;
 
-   if (pilot_target == NULL) {
+   if (pilot_target == NULL)
       rdir        = dir;
-   }
    else {
       /* Get the distance */
       dist = vect_dist( pos, &pilot_target->solid->pos );
@@ -1209,20 +1206,17 @@ static void weapon_createBolt( Weapon *w, const Outfit* outfit, double T,
       pilot_target = pilot_get(w->target);
       rdir = weapon_aimTurret( w, outfit, parent, pilot_target, pos, vel, dir, outfit->u.blt.swivel );
    }
-   else { /* fire straight */
+   else /* fire straight */
       rdir = dir;
-   }
 
-   /* Calculate accuarcy. */
+   /* Calculate accuracy. */
    acc =  HEAT_WORST_ACCURACY * pilot_heatAccuracyMod( T );
 
    /* Stat modifiers. */
-   if (outfit->type == OUTFIT_TYPE_TURRET_BOLT) {
-      w->dam_mod  *= parent->stats.damage_turret;
-   }
-   else {
-      w->dam_mod  *= parent->stats.damage_forward;
-   }
+   if (outfit->type == OUTFIT_TYPE_TURRET_BOLT)
+      w->dam_mod *= parent->stats.damage_turret;
+   else
+      w->dam_mod *= parent->stats.damage_forward;
 
    /* Calculate direction. */
    rdir += RNG_2SIGMA() * acc;
@@ -1267,19 +1261,15 @@ static void weapon_createAmmo( Weapon *w, const Outfit* outfit, double T,
    Vector2d v;
    double mass, rdir;
    Pilot *pilot_target;
-   double ew_evasion;
    glTexture *gfx;
 
    pilot_target = NULL;
    if (w->outfit->type == OUTFIT_TYPE_TURRET_AMMO) {
       pilot_target = pilot_get(w->target);
       rdir = weapon_aimTurret( w, outfit, parent, pilot_target, pos, vel, dir, M_PI );
-      /* Evasion. */
-      ew_evasion    = pilot_target->ew_evasion;
    }
    else {
       rdir        = dir;
-      ew_evasion  = 1.;
    }
    /*if (outfit->u.amm.accuracy != 0.) {
       rdir += RNG_2SIGMA() * outfit->u.amm.accuracy/2. * 1./180.*M_PI;
@@ -1299,7 +1289,6 @@ static void weapon_createAmmo( Weapon *w, const Outfit* outfit, double T,
 
    /* Set up ammo details. */
    mass        = w->outfit->mass;
-   w->lockon   = MAX( outfit->u.amm.lockon, outfit->u.amm.lockon * ew_evasion / outfit->u.amm.ew_lockon );
    w->timer    = outfit->u.amm.duration;
    w->solid    = solid_create( mass, rdir, pos, &v, SOLID_UPDATE_RK4 );
    if (w->outfit->u.amm.thrust != 0.)
@@ -1492,7 +1481,7 @@ void weapon_add( const Outfit* outfit, const double T, const double dir,
 
 
 /**
- * @brief Starts a beam weaapon.
+ * @brief Starts a beam weapon.
  *
  *    @param outfit Outfit which spawns the weapon.
  *    @param dir Direction of the shooter.
@@ -1525,6 +1514,7 @@ unsigned int beam_start( const Outfit* outfit,
    w = weapon_create( outfit, 0., dir, pos, vel, parent, target );
    w->ID = ++beam_idgen;
    w->mount = mount;
+   w->exp_timer = 0.;
 
    /* set the proper layer */
    switch (layer) {
@@ -1643,7 +1633,7 @@ static void weapon_destroy( Weapon* w, WeaponLayer layer )
          return;
    }
 
-   for (i=0; (wlayer[i] != w) && (i < *nlayer); i++); /* get to the curent position */
+   for (i=0; (wlayer[i] != w) && (i < *nlayer); i++); /* get to the current position */
    if (i >= *nlayer) {
       WARN("Trying to destroy weapon not found in stack!");
       return;
@@ -1748,7 +1738,7 @@ void weapon_exit (void)
  * @brief Clears possible exploded weapons.
  */
 void weapon_explode( double x, double y, double radius,
-      DamageType dtype, double damage,
+      int dtype, double damage,
       const Pilot *parent, int mode )
 {
    (void)dtype;

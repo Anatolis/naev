@@ -56,6 +56,7 @@ static int osd_x = 0;
 static int osd_y = 0;
 static int osd_w = 0;
 static int osd_h = 0;
+static int osd_lines = 0;
 static int osd_rh = 0;
 static int osd_tabLen = 0;
 static int osd_hyphenLen = 0;
@@ -264,7 +265,7 @@ int osd_destroy( unsigned int osd )
  *
  *    @param osd OSD to change active message.
  *    @param msg Message to make active in OSD.
- *    @return 0 on succcess.
+ *    @return 0 on success.
  */
 int osd_active( unsigned int osd, int msg )
 {
@@ -316,7 +317,8 @@ int osd_setup( int x, int y, int w, int h )
    osd_x = x;
    osd_y = y;
    osd_w = w;
-   osd_h = h;
+   osd_lines = h / (gl_smallFont.h+5);
+   osd_h = h - h % (gl_smallFont.h+5);
 
    /* Calculate some font things. */
    osd_tabLen = gl_printWidthRaw( &gl_smallFont, "   " );
@@ -343,7 +345,7 @@ void osd_render (void)
 {
    OSD_t *ll;
    double p;
-   int i, j;
+   int i, j, l;
    int w, x;
    glColour *c;
 
@@ -352,10 +354,11 @@ void osd_render (void)
       return;
 
    /* Background. */
-   gl_renderRect( osd_x-5., osd_y-osd_rh+5., osd_w+10., osd_rh+10, &cBlackHilight );
+   gl_renderRect( osd_x-5., osd_y-(osd_rh+5.), osd_w+10., osd_rh+10, &cBlackHilight );
 
    /* Render each thingy. */
-   p = osd_y;
+   p = osd_y-gl_smallFont.h;
+   l = 0;
    for (ll = osd_list; ll != NULL; ll = ll->next) {
       x = osd_x;
       w = osd_w;
@@ -363,7 +366,8 @@ void osd_render (void)
       /* Print title. */
       gl_printMaxRaw( &gl_smallFont, w, x, p, NULL, ll->title );
       p -= gl_smallFont.h + 5.;
-      if (p < osd_y-osd_h)
+      l++;
+      if (l >= osd_lines)
          return;
 
       /* Print items. */
@@ -379,7 +383,8 @@ void osd_render (void)
                x = osd_x + osd_hyphenLen;
             }
             p -= gl_smallFont.h + 5.;
-            if (p < osd_y-osd_h)
+            l++;
+            if (l >= osd_lines)
                return;
          }
       }
@@ -420,7 +425,7 @@ static void osd_calcDimensions (void)
  * @brief Gets the title of an OSD.
  *
  *    @param osd OSD to get title of.
- *    @return Title of the OSd.
+ *    @return Title of the OSD.
  */
 char *osd_getTitle( unsigned int osd )
 {
@@ -438,7 +443,7 @@ char *osd_getTitle( unsigned int osd )
  * @brief Gets the items of an OSD.
  *
  *    @param osd OSD to get items of.
- *    @param[out] nitems Numeb of OSD items.
+ *    @param[out] nitems Number of OSD items.
  */
 char **osd_getItems( unsigned int osd, int *nitems )
 {

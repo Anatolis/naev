@@ -80,7 +80,7 @@ static int nxml_persistDataNode( lua_State *L, xmlTextWriterPtr writer, int inta
    /* Default values. */
    ret   = 0;
 
-   /* We recieve data in the format of: key, value */
+   /* We receive data in the format of: key, value */
 
    /* key, value */
    /* Handle different types of keys, we must not touch the stack after this operation. */
@@ -255,7 +255,7 @@ int nxml_persistLua( lua_State *L, xmlTextWriterPtr writer )
 /**
  * @brief Unpersists Lua data.
  *
- *    @param L State to unperisist data into.
+ *    @param L State to unpersist data into.
  *    @param parent Node containing all the Lua persisted data.
  *    @return 0 on success.
  */
@@ -334,7 +334,7 @@ static int nxml_unpersistDataNode( lua_State *L, xmlNodePtr parent )
             lua_pushtime(L,lt);
          }
          else {
-            WARN("Unknown lua data type!");
+            WARN("Unknown Lua data type!");
             lua_pop(L,1);
             return -1;
          }
@@ -355,7 +355,7 @@ static int nxml_unpersistDataNode( lua_State *L, xmlNodePtr parent )
 /**
  * @brief Unpersists Lua data.
  *
- *    @param L State to unperisist data into.
+ *    @param L State to unpersist data into.
  *    @param parent Node containing all the Lua persisted data.
  *    @return 0 on success.
  */

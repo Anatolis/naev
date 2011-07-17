@@ -117,7 +117,7 @@ void menu_info( int window )
    info_wid = window_create( "Info", -1, -1, w, h );
    window_setCancel( info_wid, info_close );
 
-   /* Create tabbewd window. */
+   /* Create tabbed window. */
    info_windows = window_addTabbedWindow( info_wid, -1, -1, -1, -1, "tabInfo",
          INFO_WINDOWS, info_names );
 
@@ -389,17 +389,13 @@ static void weapons_genList( unsigned int wid )
          buf[i] = malloc( sizeof(char) * PATH_MAX );
          snprintf( buf[i], PATH_MAX, "Weapon Set %d", (i+1)%10 );
       }
-      else {
+      else
          buf[i] = strdup( str );
-      }
    }
    window_addList( wid, 20+180+20, -40,
          w - (20+180+20+20), 160,
          "lstWeapSets", buf, PILOT_WEAPON_SETS,
          0, weapons_update );
-
-   /* Update. */
-   weapons_update( wid, NULL );
 }
 
 
@@ -458,7 +454,7 @@ static void weapons_rename( unsigned int wid, char *str )
 
 
 /**
- * @brief Toggles autoweap for the sihp.
+ * @brief Toggles autoweap for the ship.
  */
 static void weapons_autoweap( unsigned int wid, char *str )
 {
@@ -611,8 +607,6 @@ static void cargo_genList( unsigned int wid )
    window_addList( wid, 20, -40,
          w - 40, h - BUTTON_HEIGHT - 80,
          "lstCargo", buf, nbuf, 0, cargo_update );
-
-   cargo_update(wid, NULL);
 }
 /**
  * @brief Updates the player's cargo in the cargo menu.
@@ -770,8 +764,6 @@ static void info_openStandings( unsigned int wid )
    /* Display list. */
    window_addList( wid, 20, -40, lw, h-60,
          "lstStandings", str, n, 0, standings_update );
-
-   standings_update( wid , NULL );
 }
 
 
@@ -792,7 +784,6 @@ static void standings_update( unsigned int wid, char* str )
 
    /* Get faction. */
    p = toolkit_getListPos( wid, "lstStandings" );
-   y = 0;
 
    /* Render logo. */
    t = faction_logoSmall( info_factions[p] );
@@ -884,12 +875,10 @@ static void mission_menu_genList( unsigned int wid, int first )
    window_addList( wid, 20, -40,
          300, h-340,
          "lstMission", misn_names, j, 0, mission_menu_update );
-
-   mission_menu_update(wid ,NULL);
 }
 /**
  * @brief Updates the mission menu mission information based on what's selected.
- *    @param str Unusued.
+ *    @param str Unused.
  */
 static void mission_menu_update( unsigned int wid, char* str )
 {

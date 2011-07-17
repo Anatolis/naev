@@ -24,7 +24,7 @@
  *
  *    @param[in] at Texture a.
  *    @param[in] asx Position of x of sprite a.
- *    @param[in] asy Position of y of sprita a.
+ *    @param[in] asy Position of y of sprite a.
  *    @param[in] ap Position in space of sprite a.
  *    @param[in] bt Texture b.
  *    @param[in] bsx Position of x of sprite b.
@@ -245,7 +245,7 @@ int CollideLineSprite( const Vector2d* ap, double ad, double al,
     * Now we do a pixel perfect approach.
     */
    real_hits = 0;
-   /* Directonaly vector (normalized). */
+   /* Directionality vector (normalized). */
    v[0] = border[1].x - border[0].x;
    v[1] = border[1].y - border[0].y;
    /* Normalize. */

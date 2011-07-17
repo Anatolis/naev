@@ -488,7 +488,7 @@ unsigned int window_getParent( unsigned int wid )
  * This function is called when the window is closed.
  *
  *    @param wid Window to set close function of.
- *    @param Function to tirgger when window is closed, parameter is window id
+ *    @param Function to trigger when window is closed, parameter is window id
  *           and name.
  */
 void window_onClose( unsigned int wid, void (*fptr)(unsigned int,char*) )
@@ -641,7 +641,7 @@ void window_handleKeys( const unsigned int wid,
 /**
  * @brief Sets the event handler for the window.
  *
- * This function is called every time the window recieves input.
+ * This function is called every time the window receives input.
  */
 void window_handleEvents( const unsigned int wid,
       int (*eventhandler)(unsigned int,SDL_Event*) )
@@ -712,11 +712,9 @@ void window_destroy( const unsigned int wid )
          continue;
 
       /* Mark children for death. */
-      for (w = windows; w != NULL; w = w->next) {
-         if (w->parent == wid) {
+      for (w = windows; w != NULL; w = w->next)
+         if (w->parent == wid)
             window_destroy( w->id );
-         }
-      }
 
       /* Mark for death. */
       window_setFlag( wdw, WINDOW_KILL );
@@ -805,12 +803,10 @@ void window_destroyWidget( unsigned int wid, const char* wgtname )
       return;
 
    /* Get the widget. */
-   /* get widget. */
-   for (wgt=wdw->widgets; wgt!=NULL; wgt=wgt->next) {
-      if (strcmp(wgt->name, wgtname)==0) {
+   for (wgt=wdw->widgets; wgt!=NULL; wgt=wgt->next)
+      if (strcmp(wgt->name, wgtname)==0)
          break;
-      }
-   }
+
    if (wgt == NULL) {
       WARN("Widget '%s' not found in window '%s'", wgtname, wdw->name );
       return;
@@ -870,7 +866,7 @@ void toolkit_drawOutlineThick( int x, int y, int w, int h, int b,
    /* Left-up. */
    tri[0][0]     = x;         /* Inner */
    tri[0][1]     = y;
-   tri[0][2]     = x-thick;   /* Outter */
+   tri[0][2]     = x-thick;   /* Outer */
    tri[0][3]     = y-thick;
    colours[0]    = *lc;
    colours[1]    = *lc;
@@ -878,7 +874,7 @@ void toolkit_drawOutlineThick( int x, int y, int w, int h, int b,
    /* Left-down. */
    tri[1][0]     = x;         /* Inner. */
    tri[1][1]     = y + h;
-   tri[1][2]     = x-thick;   /* Outter. */
+   tri[1][2]     = x-thick;   /* Outer. */
    tri[1][3]     = y + h+thick;
    colours[2]    = *c;
    colours[3]    = *c;
@@ -886,7 +882,7 @@ void toolkit_drawOutlineThick( int x, int y, int w, int h, int b,
    /* Right-down. */
    tri[2][0]     = x + w;       /* Inner. */
    tri[2][1]     = y + h;
-   tri[2][2]     = x + w+thick; /* Outter. */
+   tri[2][2]     = x + w+thick; /* Outer. */
    tri[2][3]     = y + h+thick;
    colours[4]    = *c;
    colours[5]    = *c;
@@ -894,7 +890,7 @@ void toolkit_drawOutlineThick( int x, int y, int w, int h, int b,
    /* Right-up. */
    tri[3][0]     = x + w;       /* Inner. */
    tri[3][1]     = y;
-   tri[3][2]     = x + w+thick; /* Outter. */
+   tri[3][2]     = x + w+thick; /* Outer. */
    tri[3][3]     = y-thick;
    colours[6]    = *lc;
    colours[7]    = *lc;
@@ -902,7 +898,7 @@ void toolkit_drawOutlineThick( int x, int y, int w, int h, int b,
    /* Left-up. */
    tri[4][0]     = x;         /* Inner */
    tri[4][1]     = y;
-   tri[4][2]     = x-thick;   /* Outter */
+   tri[4][2]     = x-thick;   /* Outer */
    tri[4][3]     = y-thick;
    colours[8]    = *lc;
    colours[9]    = *lc;
@@ -1334,7 +1330,7 @@ static void window_renderBorder( Window* w )
 
 
    /*
-    * outter outline
+    * outer outline
     */
    glShadeModel(GL_FLAT);
    /* Colour. */
@@ -1680,7 +1676,7 @@ Uint32 toolkit_inputTranslateCoords( Window *w, SDL_Event *event,
 /**
  * @brief Handles the mouse events.
  *
- *    @param wdw Window recieving the mouse event.
+ *    @param wdw Window receiving the mouse event.
  *    @param event Mouse event to handle.
  */
 static void toolkit_mouseEvent( Window *w, SDL_Event* event )
@@ -1718,8 +1714,8 @@ static void toolkit_mouseEvent( Window *w, SDL_Event* event )
  * @brief Handle widget mouse input.
  *
  *    @param w Window to which widget belongs.
- *    @param wgt Widget recieving event.
- *    @param event Event recieved by the window.
+ *    @param wgt Widget receiving event.
+ *    @param event Event received by the window.
  */
 static void toolkit_mouseEventWidget( Window *w, Widget *wgt,
       Uint32 type, Uint8 button, int x, int y, int rx, int ry )
@@ -1792,9 +1788,8 @@ static void toolkit_mouseEventWidget( Window *w, Widget *wgt,
                   DEBUG("Toolkit: Button '%s' of Window '%s' "
                         "doesn't have a function trigger",
                         wgt->name, w->name );
-               else {
+               else
                   (*wgt->dat.btn.fptr)(w->id, wgt->name);
-               }
             }
          }
 
@@ -1805,9 +1800,8 @@ static void toolkit_mouseEventWidget( Window *w, Widget *wgt,
          /* Always goes normal unless is below mouse. */
          if (inbounds)
             wgt->status = WIDGET_STATUS_MOUSEOVER;
-         else {
+         else
             wgt->status = WIDGET_STATUS_NORMAL;
-         }
 
          break;
    }
@@ -1851,7 +1845,7 @@ void toolkit_clearKey (void)
 /**
  * @brief Handles keyboard events.
  *
- *    @param wdw Window recieving the key event.
+ *    @param wdw Window receiving the key event.
  *    @param event Keyboard event to handle.
  *    @return 1 if the event is used, 0 if it isn't.
  */
@@ -2071,9 +2065,9 @@ void toolkit_update (void)
 
       /* Handle the focused widget. */
       wgt = toolkit_getFocus( wdw );
-      if ((wgt != NULL) && (wgt->keyevent != NULL)) {
+      if ((wgt != NULL) && (wgt->keyevent != NULL))
          wgt->keyevent( wgt, input_key, 0 );
-      }
+
       if ((input_text != 0) && (wgt != NULL) && (wgt->textevent != NULL)) {
          buf[0] = input_text;
          buf[1] = '\0';
@@ -2118,9 +2112,8 @@ void toolkit_focusSanitize( Window *wdw )
             wdw->focus = -1;
             toolkit_nextFocus( wdw ); /* Get first focus. */
          }
-         else {
+         else
             wgt_setFlag( wgt, WGT_FLAG_FOCUSED );
-         }
          return;
       }
    }
@@ -2275,7 +2268,7 @@ int toolkit_init (void)
    size = (sizeof(GLshort)*2 + sizeof(GLfloat)*4) * 31;
    toolkit_vbo = gl_vboCreateStream( size, NULL );
 
-   /* DIsable the cursor. */
+   /* Disable the cursor. */
    input_mouseHide();
 
    return 0;

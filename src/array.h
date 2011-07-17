@@ -43,7 +43,7 @@
 #include <stdint.h>
 
 #ifdef DEBUGGING
-#define SENTINEL ((int)0xbabecafe) /**< Badass sentinal. */
+#define SENTINEL ((int)0xbabecafe) /**< Badass sentinel. */
 #endif
 
 /**
@@ -51,11 +51,11 @@
  */
 typedef struct {
 #ifdef DEBUGGING
-   int _sentinel;         /**< Sentinal for when debugging. */
+   int _sentinel;         /**< Sentinel for when debugging. */
 #endif
    int _reserved;         /**< Number of elements reserved */
    int _size;             /**< Number of elements in the array */
-   char _array[1];        /**< Begin of the array */
+   char _array[0];        /**< Begin of the array */
 } _private_container;
 
 
@@ -76,8 +76,7 @@ __inline__ static _private_container *_array_private_container(void *a)
 {
    assert("NULL array!" && (a != NULL));
 
-   const intptr_t delta = (intptr_t)(&((_private_container *)NULL)->_array);
-   _private_container *c = (_private_container *)((char *)a - delta);
+   _private_container *c = (_private_container *)a - 1;
 
 #ifdef DEBUGGING
    assert("Sentinel not found. Use array_create() to create the array." && (c->_sentinel == SENTINEL));
@@ -140,7 +139,7 @@ __inline__ static void *_array_end_helper(void *a, size_t e_size)
  *
  *    @param ptr_array Array being manipulated.
  *    @param first First iterator to erase.
- *    @param last Last iteratior in erase section but is not erased.
+ *    @param last Last iterator in erase section but is not erased.
  */
 #define array_erase(ptr_array, first, last) \
       (_array_erase_helper((void **)(ptr_array), sizeof((ptr_array)[0][0]), (void *)(first), (void *)(last)))
@@ -178,7 +177,7 @@ __inline__ static void *_array_end_helper(void *a, size_t e_size)
  */
 #define array_reserved(array) (_array_private_container(array)->_reserved)
 /**
- * @brief Returns a pointer to the begining of the reserved memory space.
+ * @brief Returns a pointer to the beginning of the reserved memory space.
  *
  *    @param ptr_array Array being manipulated.
  *    @return Beginning of memory space.

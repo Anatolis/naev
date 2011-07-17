@@ -50,7 +50,7 @@ static int nebu_pw   = 0; /**< BG Padded Nebula width. */
 static int nebu_ph   = 0; /**< BG Padded Nebula height. */
 
 /* Information on rendering */
-static int cur_nebu[2]           = { 0, 1 }; /**< Nebulas currently rendering. */
+static int cur_nebu[2]           = { 0, 1 }; /**< Nebulae currently rendering. */
 static double nebu_timer         = 0.; /**< Timer since last render. */
 
 /* Nebula properties */
@@ -75,8 +75,10 @@ typedef struct NebulaPuff_ {
    double height; /**< height vs player */
    int tex; /**< Texture */
 } NebulaPuff;
-static NebulaPuff *nebu_puffs   = NULL; /**< Stack of puffs. */
-static int nebu_npuffs           = 0; /**< Number of puffs. */
+static NebulaPuff *nebu_puffs = NULL; /**< Stack of puffs. */
+static int nebu_npuffs        = 0; /**< Number of puffs. */
+static double puff_x          = 0.;
+static double puff_y          = 0.;
 
 
 /*
@@ -85,10 +87,12 @@ static int nebu_npuffs           = 0; /**< Number of puffs. */
 static int nebu_checkCompat( const char* file );
 static void nebu_loadTexture( SDL_Surface *sur, int w, int h, GLuint tex );
 static int nebu_generate (void);
-static void nebu_generatePuffs (void);
 static int saveNebula( float *map, const uint32_t w, const uint32_t h, const char* file );
 static SDL_Surface* loadNebula( const char* file );
 static SDL_Surface* nebu_surfaceFromNebulaMap( float* map, const int w, const int h );
+/* Puffs. */
+static void nebu_generatePuffs (void);
+static void nebu_renderPuffs( int below_player );
 /* Nebula render methods. */
 static void nebu_renderMultitexture( const double dt );
 
@@ -108,9 +112,8 @@ int nebu_init (void)
    GLfloat tw, th;
 
    /* Special code to regenerate the nebula */
-   if ((nebu_w == -9) && (nebu_h == -9)) {
+   if ((nebu_w == -9) && (nebu_h == -9))
       nebu_generate();
-   }
 
    /* Set expected sizes */
    nebu_w  = SCREEN_W;
@@ -271,12 +274,11 @@ void nebu_exit (void)
  */
 void nebu_render( const double dt )
 {
-   if (nglActiveTexture != NULL) {
+   if (nglActiveTexture != NULL)
       nebu_renderMultitexture(dt);
-   }
 
    /* Now render the puffs, they are generic. */
-   nebu_renderPuffs( dt, 1 );
+   nebu_renderPuffs( 1 );
 }
 
 
@@ -349,11 +351,9 @@ static void nebu_renderMultitexture( const double dt )
    glTexEnvi( GL_TEXTURE_ENV, GL_OPERAND2_ALPHA, GL_SRC_ALPHA );
 
    /* Compensate possible rumble */
-   if (!paused) {
-      spfx_getShake( &sx, &sy );
-      gl_matrixPush();
-         gl_matrixTranslate( -sx, -sy );
-   }
+   spfx_getShake( &sx, &sy );
+   gl_matrixPush();
+      gl_matrixTranslate( -sx, -sy );
 
    /* Now render! */
    gl_vboActivateOffset( nebu_vboBG, GL_VERTEX_ARRAY,
@@ -365,8 +365,7 @@ static void nebu_renderMultitexture( const double dt )
    glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
    gl_vboDeactivate();
 
-   if (!paused)
-      gl_matrixPop();
+   gl_matrixPop();
 
    /* Set values to defaults */
    glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
@@ -397,7 +396,9 @@ void nebu_genOverlay (void)
    /* Get GUI offsets. */
    gui_getOffset( &gx, &gy );
 
-   /* Calculate zoom. */
+   /* Here we calculate outer corners. It should actually be /2. because we
+    * are centered around 0,0. However, we treat this extra space as a buffer
+    * for when it's shaking. */
    z = 1./conf.zoom_far;
 
    /* See if need to generate overlay. */
@@ -441,8 +442,8 @@ void nebu_genOverlay (void)
    }
 
    /* Top Left */
-   data[(2+4)*18+0]  = -SCREEN_W/2.*z-gx;
-   data[(2+4)*18+1]  = SCREEN_H/2.*z-gy;
+   data[(2+4)*18+0]  = -SCREEN_W*z-gx;
+   data[(2+4)*18+1]  = SCREEN_H*z-gy;
    data[(2+4)*18+2]  = -nebu_view;
    data[(2+4)*18+3]  = 0.;
    data[(2+4)*18+4]  = -nebu_view*COS225;
@@ -453,12 +454,12 @@ void nebu_genOverlay (void)
    data[(2+4)*18+9]  = nebu_view*COS225;
    data[(2+4)*18+10] = 0.;
    data[(2+4)*18+11] = nebu_view;
-   data[(2+4)*18+12] = SCREEN_W/2.*z-gx;
-   data[(2+4)*18+13] = SCREEN_H/2.*z-gy;
+   data[(2+4)*18+12] = SCREEN_W*z-gx;
+   data[(2+4)*18+13] = SCREEN_H*z-gy;
 
    /* Top Right */
-   data[(2+4)*18+14] = SCREEN_W/2.*z-gx;
-   data[(2+4)*18+15] = SCREEN_H/2.*z-gy;
+   data[(2+4)*18+14] = SCREEN_W*z-gx;
+   data[(2+4)*18+15] = SCREEN_H*z-gy;
    data[(2+4)*18+16] = 0.;
    data[(2+4)*18+17] = nebu_view;
    data[(2+4)*18+18] = nebu_view*SIN225;
@@ -469,12 +470,12 @@ void nebu_genOverlay (void)
    data[(2+4)*18+23] = nebu_view*SIN225;
    data[(2+4)*18+24] = nebu_view;
    data[(2+4)*18+25] = 0.;
-   data[(2+4)*18+26] = SCREEN_W/2.*z-gx;
-   data[(2+4)*18+27] = -SCREEN_H/2.*z-gy;
+   data[(2+4)*18+26] = SCREEN_W*z-gx;
+   data[(2+4)*18+27] = -SCREEN_H*z-gy;
 
    /* Bottom Right */
-   data[(2+4)*18+28] = SCREEN_W/2.*z-gx;
-   data[(2+4)*18+29] = -SCREEN_H/2.*z-gy;
+   data[(2+4)*18+28] = SCREEN_W*z-gx;
+   data[(2+4)*18+29] = -SCREEN_H*z-gy;
    data[(2+4)*18+30] = nebu_view;
    data[(2+4)*18+31] = 0.;
    data[(2+4)*18+32] = nebu_view*COS225;
@@ -485,12 +486,12 @@ void nebu_genOverlay (void)
    data[(2+4)*18+37] = -nebu_view*COS225;
    data[(2+4)*18+38] = 0.;
    data[(2+4)*18+39] = -nebu_view;
-   data[(2+4)*18+40] = -SCREEN_W/2.*z-gx;
-   data[(2+4)*18+41] = -SCREEN_H/2.*z-gy;
+   data[(2+4)*18+40] = -SCREEN_W*z-gx;
+   data[(2+4)*18+41] = -SCREEN_H*z-gy;
 
    /* Bottom left */
-   data[(2+4)*18+42] = -SCREEN_W/2.*z-gx;
-   data[(2+4)*18+43] = -SCREEN_H/2.*z-gy;
+   data[(2+4)*18+42] = -SCREEN_W*z-gx;
+   data[(2+4)*18+43] = -SCREEN_H*z-gy;
    data[(2+4)*18+44] = 0.;
    data[(2+4)*18+45] = -nebu_view;
    data[(2+4)*18+46] = -nebu_view*SIN225;
@@ -501,8 +502,8 @@ void nebu_genOverlay (void)
    data[(2+4)*18+51] = -nebu_view*SIN225;
    data[(2+4)*18+52] = -nebu_view;
    data[(2+4)*18+53] = 0.;
-   data[(2+4)*18+54] = -SCREEN_W/2.*z-gx;
-   data[(2+4)*18+55] = SCREEN_H/2.*z-gy;
+   data[(2+4)*18+54] = -SCREEN_W*z-gx;
+   data[(2+4)*18+55] = SCREEN_H*z-gy;
 
    gl_vboUnmap( nebu_vboOverlay );
 }
@@ -518,6 +519,7 @@ void nebu_genOverlay (void)
  */
 void nebu_renderOverlay( const double dt )
 {
+   (void) dt;
    double gx, gy;
    double ox, oy;
    double z;
@@ -532,16 +534,14 @@ void nebu_renderOverlay( const double dt )
    /*
     * Renders the puffs
     */
-   nebu_renderPuffs( dt, 0 );
+   nebu_renderPuffs( 0 );
 
    /* Prepare the matrix */
    ox = gx;
    oy = gy;
-   if (!paused) {
-      spfx_getShake( &sx, &sy );
-      ox += sx;
-      oy += sy;
-   }
+   spfx_getShake( &sx, &sy );
+   ox += sx;
+   oy += sy;
    gl_matrixPush();
       gl_matrixTranslate( SCREEN_W/2.+ox, SCREEN_H/2.+oy );
       gl_matrixScale( z, z );
@@ -583,6 +583,10 @@ void nebu_renderOverlay( const double dt )
    gl_vboDeactivate();
    gl_matrixPop();
 
+   /* Reset puff movement. */
+   puff_x = 0.;
+   puff_y = 0.;
+
    gl_checkErr();
 }
 
@@ -593,7 +597,7 @@ void nebu_renderOverlay( const double dt )
  *    @param dt Current delta tick.
  *    @param below_player Render the puffs below player or above player?
  */
-void nebu_renderPuffs( const double dt, int below_player )
+static void nebu_renderPuffs( int below_player )
 {
    int i;
 
@@ -602,17 +606,15 @@ void nebu_renderPuffs( const double dt, int below_player )
 
    for (i=0; i<nebu_npuffs; i++) {
 
-      /* Seperate by layers */
+      /* Separate by layers */
       if ((below_player && (nebu_puffs[i].height < 1.)) ||
             (!below_player && (nebu_puffs[i].height > 1.))) {
 
          /* calculate new position */
-         if (!paused && (player.p!=NULL)) {
-            nebu_puffs[i].x -= player.p->solid->vel.x * nebu_puffs[i].height * dt;
-            nebu_puffs[i].y -= player.p->solid->vel.y * nebu_puffs[i].height * dt;
-         }
+         nebu_puffs[i].x += puff_x * nebu_puffs[i].height;
+         nebu_puffs[i].y += puff_y * nebu_puffs[i].height;
 
-         /* Check boundries */
+         /* Check boundaries */
          if (nebu_puffs[i].x > SCREEN_W + NEBULA_PUFF_BUFFER)
             nebu_puffs[i].x -= SCREEN_W + 2*NEBULA_PUFF_BUFFER;
          else if (nebu_puffs[i].y > SCREEN_H + NEBULA_PUFF_BUFFER)
@@ -627,6 +629,16 @@ void nebu_renderPuffs( const double dt, int below_player )
                nebu_puffs[i].x, nebu_puffs[i].y, &cLightBlue );
       }
    }
+}
+
+
+/**
+ * @brief Moves the nebula puffs.
+ */
+void nebu_movePuffs( double x, double y )
+{
+   puff_x += x;
+   puff_y += y;
 }
 
 
@@ -706,7 +718,7 @@ static int nebu_generate (void)
    for (i=0; i<NEBULA_Z; i++) {
       snprintf( nebu_file, PATH_MAX, NEBULA_PATH_BG, w, h, i );
       ret = saveNebula( &nebu[ i*w*h ], w, h, nebu_file );
-      if (ret != 0) break; /* An error has happenend */
+      if (ret != 0) break; /* An error has happened */
    }
 
    /* Cleanup */
@@ -777,7 +789,6 @@ static int saveNebula( float *map, const uint32_t w, const uint32_t h, const cha
    sur = nebu_surfaceFromNebulaMap( map, w, h );
 
    /* save */
-   ret = 0;
    snprintf(file_path, PATH_MAX, "%s%s", nfile_basePath(), file );
    ret = SDL_SavePNG( sur, file_path );
 
@@ -789,7 +800,7 @@ static int saveNebula( float *map, const uint32_t w, const uint32_t h, const cha
 
 
 /**
- * @brief Loads the nebuale from file.
+ * @brief Loads the nebulae from file.
  *
  *    @param file Path of the nebula to load.  Relative to base directory.
  *    @return A SDL surface with the nebula.

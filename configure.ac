@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.61])
-AC_INIT([naev], [0.5.-1], [bobbens@gmail.com])
+AC_INIT([naev], [0.5.0], [bobbens@gmail.com])
 AC_CONFIG_SRCDIR([src/naev.c])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -426,7 +426,13 @@ esac
 # This is a list of in-tree static libs that naev depends on.  It is used by
 # automake to detect when the binary needs recompiling after a library has been
 # changed.
-NAEV_DEPENDENCIES="$WIDGET_LIBS $LUA_LIBS $CSPARSE_LIBS"
+NAEV_DEPENDENCIES="$WIDGET_LIBS"
+AS_IF([test "$used_lua" == "internal"], [
+   NAEV_DEPENDENCIES="$NAEV_DEPENDENCIES $LUA_LIBS"
+])
+AS_IF([test "$used_csparse" == "internal"], [
+   NAEV_DEPENDENCIES="$NAEV_DEPENDENCIES $CSPARSE_LIBS"
+])
 
 AC_SUBST([NAEV_CFLAGS])
 AC_SUBST([NAEV_LIBS])

@@ -5,7 +5,7 @@
 /**
  * @file nlua_misn.c
  *
- * @brief Handles the mission lua bindings.
+ * @brief Handles the mission Lua bindings.
  */
 
 
@@ -137,7 +137,7 @@ int misn_loadLibs( lua_State *L )
  * individual library loading
  */
 /**
- * @brief Loads the mission lua library.
+ * @brief Loads the mission Lua library.
  *    @param L Lua state.
  */
 int nlua_loadMisn( lua_State *L )
@@ -258,7 +258,7 @@ int misn_runFunc( Mission *misn, const char *func, int nargs )
 
    ret = lua_pcall(L, nargs, 0, errf);
    cur_mission = misn_getFromLua(L); /* The mission can change if accepted. */
-   if (ret != 0) { /* error has occured */
+   if (ret != 0) { /* error has occurred */
       err = (lua_isstring(L,-1)) ? lua_tostring(L,-1) : NULL;
       if ((err==NULL) || (strcmp(err,NLUA_DONE)!=0)) {
          WARN("Mission '%s' -> '%s': %s",
@@ -627,7 +627,7 @@ static int misn_accept( lua_State *L )
       lua_setglobal(L,"__misn");
    }
 
-   lua_pushboolean(L,!ret); /* we'll convert C style return to lua */
+   lua_pushboolean(L,!ret); /* we'll convert C style return to Lua */
    return 1;
 }
 /**
@@ -805,9 +805,9 @@ static int misn_osdCreate( lua_State *L )
    items = calloc( nitems, sizeof(char *) );
 
    /* Get items. */
-   i = 0;
-   lua_pushnil(L); /* table, nil */
-   while (lua_next(L,-2) != 0) { /* table, key, val */
+   for (i=0; i<nitems; i++) {
+      lua_pushnumber(L,i+1);
+      lua_gettable(L,2);
       if (!lua_isstring(L,-1)) {
          free(items);
          luaL_typerror(L, -1, "string");
@@ -815,9 +815,6 @@ static int misn_osdCreate( lua_State *L )
       }
       items[i] = strdup( lua_tostring(L, -1) );
       lua_pop(L,1);
-      i++;
-      if (i >= nitems)
-         break;
    }
 
    /* Create OSD. */
@@ -885,10 +882,10 @@ static int misn_osdActive( lua_State *L )
  *
  * @usage npc_id = misn.npcAdd( "my_func", "Mr. Test", "none", "A test." ) -- Creates an NPC.
  *
- *    @luaparam func Name of the function to run when approaching.
+ *    @luaparam func Name of the function to run when approaching, gets passed the npc_id when called.
  *    @luaparam name Name of the NPC
  *    @luaparam portrait Portrait to use for the NPC (from gfx/portraits*.png).
- *    @luaparam desc Description assosciated to the NPC.
+ *    @luaparam desc Description associated to the NPC.
  *    @luaparam priority Optional priority argument (defaults to 5, highest is 0, lowest is 10).
  *    @luareturn The ID of the NPC to pass to npcRm.
  * @luafunc npcAdd( func, name, portrait, desc, priority )
@@ -971,6 +968,7 @@ static int misn_npcRm( lua_State *L )
  */
 static int misn_claim( lua_State *L )
 {
+   int i, l;
    LuaSystem *ls;
    SysClaim_t *claim;
    Mission *cur_mission;
@@ -989,8 +987,10 @@ static int misn_claim( lua_State *L )
 
    if (lua_istable(L,1)) {
       /* Iterate over table. */
-      lua_pushnil(L);
-      while (lua_next(L, 1) != 0) {
+      l = lua_objlen(L,1);
+      for (i=0; i<l; i++) {
+         lua_pushnumber(L,i+1);
+         lua_gettable(L,1);
          if (lua_issystem(L,-1)) {
             ls = lua_tosystem( L, -1 );
             claim_add( claim, ls->id );

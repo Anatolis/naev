@@ -54,6 +54,7 @@ static int pilot_weapSetFire( Pilot *p, PilotWeaponSet *ws, int level )
    int i, j, ret, s;
    Pilot *pt;
    double dist2;
+   Outfit *o;
 
    /* Case no outfits. */
    if (ws->slots == NULL)
@@ -62,19 +63,23 @@ static int pilot_weapSetFire( Pilot *p, PilotWeaponSet *ws, int level )
    /* If inrange is set we only fire at targets in range. */
    if (ws->inrange) {
       if (p->target == p->id)
-         return 0;
-      pt = pilot_get( p->target );
-      if (pt == NULL)
-         return 0;
-      dist2 = vect_dist2( &p->solid->pos, &pt->solid->pos );
+         dist2 = INFINITY; /* With no target we just set distance to infinity. */
+      else {
+         pt = pilot_get( p->target );
+         if (pt == NULL)
+            dist2 = INFINITY;
+         else
+            dist2 = vect_dist2( &p->solid->pos, &pt->solid->pos );
+      }
    }
 
    /* Fire. */
    ret = 0;
    for (i=0; i<array_size(ws->slots); i++) {
+      o = ws->slots[i].slot->outfit;
 
       /* Ignore NULL outfits. */
-      if (ws->slots[i].slot->outfit == NULL)
+      if (o == NULL)
          continue;
 
       /* Only "active" outfits. */
@@ -88,7 +93,7 @@ static int pilot_weapSetFire( Pilot *p, PilotWeaponSet *ws, int level )
          if ((level != -1) && (ws->slots[j].level != level))
             continue;
          /* Found a match. */
-         if (ws->slots[j].slot->outfit == ws->slots[i].slot->outfit) {
+         if (ws->slots[j].slot->outfit == o) {
             s = 1;
             break;
          }
@@ -96,12 +101,18 @@ static int pilot_weapSetFire( Pilot *p, PilotWeaponSet *ws, int level )
       if (s!=0)
          continue;
 
+      /* Only "locked on" outfits. */
+      if (outfit_isSeeker(o) && 
+            (ws->slots[i].slot->u.ammo.lockon_timer > 0.))
+         continue;
+
       /* Only "inrange" outfits. */
-      if (ws->inrange && (dist2 > ws->slots[i].range2))
+      if (!outfit_isFighterBay(o) &&
+            ws->inrange && (dist2 > ws->slots[i].range2))
          continue;
 
       /* Shoot the weapon of the weaponset. */
-      ret += pilot_shootWeaponSetOutfit( p, ws, ws->slots[i].slot->outfit, level );
+      ret += pilot_shootWeaponSetOutfit( p, ws, o, level );
    }
 
    return ret;
@@ -152,10 +163,13 @@ void pilot_weapSetExec( Pilot* p, int id )
 {
    PilotWeaponSet *ws;
 
+   /* Must not be doing hyperspace procedures. */
+   if (pilot_isFlag( p, PILOT_HYP_BEGIN))
+      return;
+
    ws = pilot_weapSet(p,id);
-   if (ws->fire) {
+   if (ws->fire)
       pilot_weapSetFire( p, ws, -1 );
-   }
    else {
       if (id != p->active_set)
          pilot_weapSetUpdateOutfits( p, ws );
@@ -620,7 +634,7 @@ void pilot_shootStop( Pilot* p, int level )
    /* Stop all beams. */
    for (i=0; i<array_size(ws->slots); i++) {
 
-      /* Must have assosciated outfit. */
+      /* Must have associated outfit. */
       if (ws->slots[i].slot->outfit == NULL)
          continue;
 
@@ -838,10 +852,9 @@ static int pilot_shootWeapon( Pilot* p, PilotOutfitSlot* w )
       w->u.ammo.deployed += 1; /* Mark as deployed. */
       pilot_updateMass( p );
    }
-
-   else {
+   else
       WARN("Shooting unknown weapon type: %s", w->outfit->name);
-   }
+
 
    /* Reset timer. */
    w->timer += rate_mod * outfit_delay( w->outfit );
@@ -992,9 +1005,8 @@ void pilot_weaponAuto( Pilot *p )
          pilot_weapSetAdd( p, 0, slot, level ); /* Also get added to 'All'. */
          pilot_weapSetAdd( p, 3, slot, 1 );     /* Also get added to 'Fwd/Tur'. */
       }
-      else if (id == 4) { /* Seekers */
+      else if (id == 4) /* Seekers */
          pilot_weapSetAdd( p, 0, slot, level ); /* Also get added to 'All'. */
-      }
    }
 
    /* Update active weapon set. */
@@ -1016,7 +1028,7 @@ void pilot_weaponSetDefault( Pilot *p )
       return;
    }
 
-   /* Find first fire gorup. */
+   /* Find first fire group. */
    for (i=0; i<PILOT_WEAPON_SETS; i++)
       if (!p->weapon_sets[i].fire)
          break;

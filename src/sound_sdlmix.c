@@ -392,7 +392,7 @@ double sound_mix_getVolume (void)
 /**
  * @brief Loads a sound into the sound_list.
  *
- *    @param filename Name fo the file to load.
+ *    @param filename Name of the file to load.
  *    @return The SDL_Mixer of the loaded chunk.
  *
  * @sa sound_makeList
@@ -585,7 +585,7 @@ void sound_mix_pauseGroup( int group )
 
 
 /**
- * @brief Pauses all the sounds in a gorup.
+ * @brief Pauses all the sounds in a group.
  */
 void sound_mix_resumeGroup( int group )
 {
@@ -616,7 +616,7 @@ void sound_mix_speedGroup( int group, int enable )
 
 
 /**
- * @brief Sets the volume of a gorup.
+ * @brief Sets the volume of a group.
  */
 void sound_mix_volumeGroup( int group, double volume )
 {

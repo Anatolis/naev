@@ -169,9 +169,9 @@ static int chk_key( Widget* chk, SDLKey key, SDLMod mod )
 {
    (void) mod;
 
-   if (key == SDLK_SPACE) {
+   if (key == SDLK_SPACE)
       chk_toggleState( chk );
-   }
+
    return 0;
 }
 
@@ -239,7 +239,7 @@ static void chk_render( Widget* chk, double bx, double by )
 #if 0
    /* Inner outline */
    toolkit_drawOutline( x, y + (chk->h-10.)/2., 10, 10, 0., lc, c );
-   /* Outter outline */
+   /* Outer outline */
    toolkit_drawOutline( x, y + (chk->h-10.)/2., 10, 10, 1., &cBlack, NULL );
 #endif
 

@@ -21,6 +21,7 @@
 #include "rng.h"
 #include "economy.h"
 #include "hook.h"
+#include "damagetype.h"
 
 
 #define BOARDING_WIDTH  300 /**< Boarding window width. */
@@ -124,7 +125,7 @@ void player_board (void)
     */
    hparam[0].type       = HOOK_PARAM_PILOT;
    hparam[0].u.lp.pilot = p->id;
-   hparam[1].type       = HOOK_PARAM_SENTINAL;
+   hparam[1].type       = HOOK_PARAM_SENTINEL;
    hooks_runParam( "board", hparam );
    pilot_runHook(p, PILOT_HOOK_BOARD);
 
@@ -300,6 +301,7 @@ static void board_stealFuel( unsigned int wdw, char* str )
 static int board_trySteal( Pilot *p )
 {
    Pilot *target;
+   Damage dmg;
 
    /* Get the target. */
    target = pilot_get(p->target);
@@ -316,7 +318,11 @@ static int board_trySteal( Pilot *p )
       target->shield = 0.;
       target->armour = 1.;
       /* This will make the boarding ship take the possible faction hit. */
-      pilot_hit( target, NULL, p->id, DAMAGE_TYPE_KINETIC, 100., 1. );
+      dmg.type        = dtype_get("normal");
+      dmg.damage      = 100.;
+      dmg.penetration = 1.;
+      dmg.disable     = 0.;
+      pilot_hit( target, NULL, p->id, &dmg );
       /* Return ship dead. */
       return -1;
    }

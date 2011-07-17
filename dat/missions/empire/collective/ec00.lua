@@ -43,6 +43,7 @@ else -- default english
    osd_msg[1] = "Fly to the %s system"
    osd_msg[2] = "Locate the Collective drone, but do not engage."
    osd_msg[3] = "Report back to %s in the %s system"
+   osd_msg["__save"] = true 
 end
 
 
@@ -126,7 +127,7 @@ function land()
 
    if misn_stage == 1 and  pnt == misn_base then
       tk.msg( title[3], string.format(text[4],misn_target:name()) )
-      player.modFaction("Empire",5)
+      faction.modPlayerSingle("Empire",5)
       misn.finish(true)
    end
 end

@@ -57,20 +57,33 @@
   <item>Heavy Ripper Cannon</item>
   <item>Orion Beam</item>
   <item>Ragnarok Beam</item>
-  <item>Seeker Launcher</item>
-  <item>Seeker Missile</item>
-  <item>Headhunter Launcher</item>
+  <item>Unicorp Fury Launcher</item>
+  <item>TeraCom Fury Launcher</item>
+  <item>Enygma Systems Turreted Fury Launcher</item>
+  <item>Fury Missile</item>
+  <item>Unicorp Headhunter Launcher</item>
+  <item>TeraCom Headhunter Launcher</item>
+  <item>Enygma Systems Turreted Headhunter Launcher</item>
   <item>Headhunter Missile</item>
-  <item>Banshee Launcher</item>
+  <item>Unicorp Vengeance Launcher</item>
+  <item>TeraCom Vengeance Launcher</item>
+  <item>Enygma Systems Turreted Vengeance Launcher</item>
+  <item>Vengeance Missile</item>
+  <item>Unicorp Banshee Launcher</item>
+  <item>TeraCom Banshee Launcher</item>
   <item>Banshee Rocket</item>
-  <item>Mace Launcher</item>
+  <item>Unicorp Mace Launcher</item>
+  <item>TeraCom Mace Launcher</item>
   <item>Mace Rocket</item>
-  <item>Caesar IV Launcher</item>
-  <item>Caesar IV Missile</item>
-  <item>Imperator Launcher</item>
-  <item>Imperator Missile</item>
+  <item>Unicorp Caesar IV Launcher</item>
+  <item>Caesar IV Torpedo</item>
+  <item>TeraCom Imperator Launcher</item>
+  <item>Imperator Torpedo</item>
   <item>EMP Grenade Launcher</item>
   <item>EMP Grenade</item>
+  <item>Unicorp Medusa Launcher</item>
+  <item>TeraCom Medusa Launcher</item>
+  <item>Medusa Missile</item>
   <item>Battery</item>
   <item>Battery II</item>
   <item>Battery III</item>
@@ -105,7 +118,9 @@
   <item>Improved Power Regulator</item>
   <item>Improved Refrigeration Cycle</item>
   <item>Star Map</item>
-  <item>Civilian Jammer</item>
+  <item>Unicorp Scrambler</item>
+  <item>Milspec Scrambler</item>
+  <item>Unicorp Jammer</item>
   <item>Milspec Jammer</item>
   <item>Lancelot Fighter Bay</item>
   <item>Lancelot Fighter</item>
@@ -125,6 +140,7 @@
   <item>Drone</item>
   <item>Dvaered Ancestor</item>
   <item>Dvaered Goddard</item>
+  <item>Dvaered Phalanx</item>
   <item>Dvaered Vendetta</item>
   <item>Dvaered Vigilance</item>
   <item>Empire Admonisher</item>
@@ -143,9 +159,11 @@
   <item>Llama</item>
   <item>Mule</item>
   <item>Pacifier</item>
+  <item>Phalanx</item>
   <item>Pirate Admonisher</item>
   <item>Pirate Ancestor</item>
   <item>Pirate Kestrel</item>
+  <item>Pirate Phalanx</item>
   <item>Pirate Rhino</item>
   <item>Pirate Shark</item>
   <item>Pirate Vendetta</item>
@@ -161,6 +179,13 @@
   <item>Sirius Preacher</item>
   <item>Sirius Divinity</item>
   <item>Sirius Dogma</item>
+  <item>Soromid Brigand</item>
+  <item>Soromid Reaver</item>
+  <item>Soromid Marauder</item>
+  <item>Soromid Odium</item>
+  <item>Soromid Nyx</item>
+  <item>Soromid Ira</item>
+  <item>Soromid Arx</item>
   <item>Vendetta</item>
   <item>Vigilance</item>
  </tech>
@@ -243,8 +268,8 @@
   <item>Laser Cannon MK1</item>
   <item>Plasma Blaster MK1</item>
   <item>Gauss Gun</item>
-  <item>Seeker Launcher</item>
-  <item>Seeker Missile</item>
+  <item>Unicorp Fury Launcher</item>
+  <item>Fury Missile</item>
   <item>Battery</item>
   <item>Solar Panel</item>
   <item>Fuel Pod</item>
@@ -255,7 +280,7 @@
  <tech name="Basic Outfits 2">
   <item>Laser Cannon MK2</item>
   <item>Plasma Blaster MK2</item>
-  <item>Banshee Launcher</item>
+  <item>Unicorp Banshee Launcher</item>
   <item>Banshee Rocket</item>
   <item>Reactor Class I</item>
   <item>Shield Capacitor</item>
@@ -266,7 +291,8 @@
   <item>Cargo Pod</item>
   <item>Boarding Androids MKI</item>
   <item>Star Map</item>
-  <item>Civilian Jammer</item>
+  <item>Unicorp Scrambler</item>
+  <item>Unicorp Jammer</item>
   <item>Large Civilian Vessel License</item>
   <item>GUI - Brushed</item>
   </tech>
@@ -306,7 +332,8 @@
   <item>Boarding Androids MKI</item>
   <item>Boarding Androids MKII</item>
   <item>Star Map</item>
-  <item>Civilian Jammer</item>
+  <item>Unicorp Scrambler</item>
+  <item>Unicorp Jammer</item>
   <item>Light Combat Vessel License</item>
  </tech>
  <tech name="High Tech Upgrades 1">
@@ -333,7 +360,8 @@
   <item>Forward Shock Absorbers</item>
   <item>Power Regulation Override</item>
   <item>Star Map</item>
-  <item>Civilian Jammer</item>
+  <item>Unicorp Scrambler</item>
+  <item>Unicorp Jammer</item>
   <item>Lancelot Fighter Bay</item>
   <item>Lancelot Fighter</item>
   <item>Medium Weapon License</item>
@@ -352,24 +380,25 @@
   <item>Improved Power Regulator</item>
   <item>Improved Refrigeration Cycle</item>
   <item>Star Map</item>
+  <item>Milspec Scrambler</item>
   <item>Milspec Jammer</item>
   <item>Lancelot Fighter Bay</item>
   <item>Lancelot Fighter</item>
   <item>Medium Weapon License</item>
  </tech>
  <tech name="Missiles 1">
-  <item>Banshee Launcher</item>
+  <item>Unicorp Banshee Launcher</item>
   <item>Banshee Rocket</item>
-  <item>Seeker Launcher</item>
-  <item>Seeker Missile</item>
+  <item>Unicorp Fury Launcher</item>
+  <item>Fury Missile</item>
  </tech>
  <tech name="Missiles 2">
-  <item>Headhunter Launcher</item>
+  <item>Unicorp Headhunter Launcher</item>
   <item>Headhunter Missile</item>
-  <item>Mace Launcher</item>
+  <item>Unicorp Mace Launcher</item>
   <item>Mace Rocket</item>
-  <item>Caesar IV Launcher</item>
-  <item>Caesar IV Missile</item>
+  <item>Unicorp Caesar IV Launcher</item>
+  <item>Caesar IV Torpedo</item>
  </tech>
 
  <!-- Ships -->
@@ -397,6 +426,7 @@
   <item>Vendetta</item>
  </tech>
  <tech name="Heavy Civilian Combat Ships">
+  <item>Phalanx</item>
   <item>Admonisher</item>
   <item>Hawking</item>
   <item>Lancelot</item>
@@ -418,6 +448,7 @@
  <tech name="Dvaered Military Ships">
   <item>Dvaered Ancestor</item>
   <item>Dvaered Goddard</item>
+  <item>Dvaered Phalanx</item>
   <item>Dvaered Vendetta</item>
   <item>Dvaered Vigilance</item>
  </tech>
@@ -425,9 +456,10 @@
   <item>Pirate Admonisher</item>
   <item>Pirate Ancestor</item>
   <item>Pirate Kestrel</item>
+  <item>Pirate Phalanx</item>
   <item>Pirate Rhino</item>
-  <item>Pirate Vendetta</item>
   <item>Pirate Shark</item>
+  <item>Pirate Vendetta</item>
  </tech>
  <tech name="Proteron Military Ships">
   <item>Proteron Archimedes</item>
@@ -440,6 +472,15 @@
   <item>Sirius Preacher</item>
   <item>Sirius Divinity</item>
   <item>Sirius Dogma</item>
+ </tech>
+ <tech name="Soromid Military Ships">
+  <item>Soromid Brigand</item>
+  <item>Soromid Reaver</item>
+  <item>Soromid Marauder</item>
+  <item>Soromid Odium</item>
+  <item>Soromid Nyx</item>
+  <item>Soromid Ira</item>
+  <item>Soromid Arx</item>
  </tech>
 
  <tech name="__Heavy Weapon License">

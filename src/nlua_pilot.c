@@ -34,6 +34,7 @@
 #include "weapon.h"
 #include "gui.h"
 #include "camera.h"
+#include "damagetype.h"
 
 
 /*
@@ -88,6 +89,7 @@ static int pilotL_getColour( lua_State *L );
 static int pilotL_getHostile( lua_State *L );
 static int pilotL_flags( lua_State *L );
 static int pilotL_setActiveBoard( lua_State *L );
+static int pilotL_setNoDeath( lua_State *L );
 static int pilotL_disable( lua_State *L );
 static int pilotL_setNoJump( lua_State *L );
 static int pilotL_setNoLand( lua_State *L );
@@ -174,6 +176,7 @@ static const luaL_reg pilotL_methods[] = {
    { "setVisible", pilotL_setVisible },
    { "setHilight", pilotL_setHilight },
    { "setActiveBoard", pilotL_setActiveBoard },
+   { "setNoDeath", pilotL_setNoDeath },
    { "disable", pilotL_disable },
    { "setNoJump", pilotL_setNoJump },
    { "setNoLand", pilotL_setNoLand },
@@ -778,19 +781,27 @@ static int pilotL_getPilots( lua_State *L )
    d = lua_toboolean(L,2);
 
    /* Check for belonging to faction. */
-   if (lua_istable(L,1)) {
-      /* Get table length and preallocate. */
-      nfactions = (int) lua_objlen(L,1);
-      factions = malloc( sizeof(int) * nfactions );
-      /* Load up the table. */
-      lua_pushnil(L);
-      i = 0;
-      while (lua_next(L, -2) != 0) {
-         if (lua_isfaction(L,-1)) {
-            f = lua_tofaction(L, -1);
-            factions[i++] = f->f;
+   if (lua_istable(L,1) || lua_isfaction(L,1)) {
+      if (lua_isfaction(L,1)) {
+         nfactions = 1;
+         factions = malloc( sizeof(int) * nfactions );
+         f = lua_tofaction(L,1);
+         factions[0] = f->f;
+      }
+      else {
+         /* Get table length and preallocate. */
+         nfactions = (int) lua_objlen(L,1);
+         factions = malloc( sizeof(int) * nfactions );
+         /* Load up the table. */
+         lua_pushnil(L);
+         i = 0;
+         while (lua_next(L, -2) != 0) {
+            if (lua_isfaction(L,-1)) {
+               f = lua_tofaction(L, -1);
+               factions[i++] = f->f;
+            }
+            lua_pop(L,1);
          }
-         lua_pop(L,1);
       }
 
       /* Now put all the matching pilots in a table. */
@@ -883,7 +894,7 @@ static int pilotL_name( lua_State *L )
  * @usage id = p:id()
  *
  *    @luaparam p Pilot to get the ID of.
- *    @luareturn The ID of the curent pilot.
+ *    @luareturn The ID of the current pilot.
  * @luafunc id( p )
  */
 static int pilotL_id( lua_State *L )
@@ -950,7 +961,7 @@ static int pilotL_target( lua_State *L )
    if (p->target == 0)
       return 0;
    lp.pilot = p->target;
-   /* Must be targetted. */
+   /* Must be targeted. */
    if (p->target == p->id)
       return 0;
    /* Must be valid. */
@@ -1004,7 +1015,7 @@ static int pilotL_inrange( lua_State *L )
  * @usage planet, hyperspace = p:nav()
  *
  *    @luaparam p Pilot to get nav info of.
- *    @luareturn The planet target followed by the hyperspace target or nil if not targetted.
+ *    @luareturn The planet target followed by the hyperspace target or nil if not targeted.
  * @luafunc nav( p )
  */
 static int pilotL_nav( lua_State *L )
@@ -1043,11 +1054,13 @@ static int pilotL_nav( lua_State *L )
  *
  * The weapon sets have the following structure: <br />
  * <ul>
- *  <li> name: name of the set <br />
- *  <li> cooldown: [0:1] value indicating if ready to shoot (1 is ready) <br />
- *  <li> ammo: Name of the ammo or nil if not applicable <br />
- *  <li> left: Absolute ammo left or nil if not applicable <br />
+ *  <li> name: name of the set. <br />
+ *  <li> cooldown: [0:1] value indicating if ready to shoot (1 is ready). <br />
+ *  <li> ammo: Name of the ammo or nil if not applicable. <br />
+ *  <li> left: Absolute ammo left or nil if not applicable. <br />
  *  <li> left_p: Relative ammo left [0:1] or nil if not applicable <br />
+ *  <li> lockon: Lockon [0:1] for seeker weapons or nil if not applicable. <br />
+ *  <li> in_arc: Whether or not the target is in targetting arc or nil if not applicable. <br />
  *  <li> level: Level of the weapon (1 is primary, 2 is secondary). <br />
  *  <li> temp: Temperature of the weapon. <br />
  *  <li> type: Type of the weapon. <br />
@@ -1082,8 +1095,9 @@ static int pilotL_weapset( lua_State *L )
    PilotWeaponSetOutfit *po_list;
    PilotOutfitSlot *slot;
    Outfit *ammo, *o;
-   double delay, firemod, enermod;
+   double delay, firemod, enermod, t;
    int id, all, level, level_match;
+   int is_lau, is_fb;
 
    /* Defaults. */
    po_list = NULL;
@@ -1128,20 +1142,30 @@ static int pilotL_weapset( lua_State *L )
 
       /* Iterate over weapons. */
       for (i=0; i<n; i++) {
+         /* Get base look ups. */
          if (all) {
-            slot  = p->outfits[i];
-            o     = slot->outfit;
+            slot     = p->outfits[i];
+            o        = slot->outfit;
+            if (o == NULL)
+               continue;
+            is_lau   = outfit_isLauncher(o);
+            is_fb    = outfit_isFighterBay(o);
 
             /* Must be valid weapon. */
-            if ((o == NULL) || !(outfit_isBolt(o) || outfit_isBeam(o) ||
-                  outfit_isLauncher(o) || outfit_isFighterBay(o)))
+            if (!(outfit_isBolt(o) || outfit_isBeam(o) ||
+                  is_lau || is_fb))
                continue;
 
-            level = slot->level;
+            level    = slot->level;
          }
          else {
-            slot  = po_list[i].slot;
-            level = po_list[i].level;
+            slot     = po_list[i].slot;
+            o        = slot->outfit;
+            if (o == NULL)
+               continue;
+            is_lau   = outfit_isLauncher(o);
+            is_fb    = outfit_isFighterBay(o);
+            level    = po_list[i].level;
          }
 
          /* Must match level. */
@@ -1176,20 +1200,31 @@ static int pilotL_weapset( lua_State *L )
          }
 
          /* Ammo quantity absolute. */
-         if ((outfit_isLauncher(slot->outfit) ||
-                  outfit_isFighterBay(slot->outfit)) &&
+         if ((is_lau || is_fb) &&
                (slot->u.ammo.outfit != NULL)) {
             lua_pushstring(L,"left");
             lua_pushnumber( L, slot->u.ammo.quantity );
             lua_rawset(L,-3);
-         }
 
          /* Ammo quantity relative. */
-         if ((outfit_isLauncher(slot->outfit) ||
-                  outfit_isFighterBay(slot->outfit)) &&
-               (slot->u.ammo.outfit != NULL)) {
             lua_pushstring(L,"left_p");
             lua_pushnumber( L, (double)slot->u.ammo.quantity / (double)outfit_amount(slot->outfit) );
+            lua_rawset(L,-3);
+         }
+
+         /* Launcher lockon. */
+         if (is_lau) {
+            t = slot->u.ammo.lockon_timer;
+            lua_pushstring(L, "lockon");
+            if (t <= 0.)
+               lua_pushnumber(L, 1.);
+            else
+               lua_pushnumber(L, 1. - (t / slot->outfit->u.lau.lockon));
+            lua_rawset(L,-3);
+
+         /* Is in arc. */
+            lua_pushstring(L, "in_arc");
+            lua_pushboolean(L, slot->u.ammo.in_arc);
             lua_rawset(L,-3);
          }
 
@@ -1210,10 +1245,10 @@ static int pilotL_weapset( lua_State *L )
 
          /* Damage type. */
          lua_pushstring(L, "dtype");
-         if (outfit_isLauncher(slot->outfit) && (slot->u.ammo.outfit != NULL))
-            lua_pushstring(L, outfit_damageTypeToStr( outfit_damageType(slot->u.ammo.outfit) ));
+         if (is_lau && (slot->u.ammo.outfit != NULL))
+            lua_pushstring(L, dtype_damageTypeToStr( outfit_damage(slot->u.ammo.outfit)->type ));
          else
-            lua_pushstring(L, outfit_damageTypeToStr( outfit_damageType(slot->outfit) ));
+            lua_pushstring(L, dtype_damageTypeToStr( outfit_damage(slot->outfit)->type ));
          lua_rawset(L,-3);
 
          /* Track. */
@@ -1752,7 +1787,7 @@ static int pilotL_setVisible( lua_State *L )
 /**
  * @brief Makes pilot stand out on radar and the likes.
  *
- * This makes the pilot stand out in the map overlay and radar to increase noticeability.
+ * This makes the pilot stand out in the map overlay and radar to increase noticability.
  *
  * @usage p:setHilight( true )
  *
@@ -1818,6 +1853,39 @@ static int pilotL_setActiveBoard( lua_State *L )
 
 
 /**
+ * @brief Makes it so the pilot never dies, stays at 1. armour.
+ *
+ * @usage p:setNoDeath( true ) -- Pilot will never die
+ *
+ *    @luaparam p Pilot to set never die state of.
+ *    @luaparam state Whether or not to set never die state.
+ * @luafunc setNoDeath( p, state )
+ */
+static int pilotL_setNoDeath( lua_State *L )
+{
+   Pilot *p;
+   int state;
+
+   /* Get the pilot. */
+   p = luaL_validpilot(L,1);
+
+   /* Get state. */
+   if (lua_gettop(L) > 1)
+      state = lua_toboolean(L, 2);
+   else
+      state = 1;
+
+   /* Set status. */
+   if (state)
+      pilot_setFlag(p, PILOT_NODEATH);
+   else
+      pilot_rmFlag(p, PILOT_NODEATH);
+
+   return 0;
+}
+
+
+/**
  * @brief Disables a pilot.
  *
  * @usage p:disable()
@@ -1834,8 +1902,8 @@ static int pilotL_disable( lua_State *L )
 
    /* Disable the pilot. */
    p->shield = 0.;
-   p->armour = PILOT_DISABLED_ARMOR * p->ship->armour;
-   pilot_setFlag( p, PILOT_DISABLED );
+   p->stress = p->armour;
+   pilot_updateDisable(p, 0);
 
    return 0;
 }
@@ -2129,30 +2197,39 @@ static int pilotL_changeAI( lua_State *L )
  *
  * @usage p:setHealth( 100, 100 ) -- Sets pilot to full health
  * @usage p:setHealth(  70,   0 ) -- Sets pilot to 70% armour
+ * @usage p:setHealth( 100, 100, 0 ) -- Sets pilot to full health and no stress
  *
  *    @luaparam p Pilot to set health of.
  *    @luaparam armour Value to set armour to, should be double from 0-100 (in percent).
  *    @luaparam shield Value to set shield to, should be double from 0-100 (in percent).
- * @luafunc setHealth( p, armour, shield )
+ *    @luaparam stress Optional value to set stress (disable damage) to, should be double from 0-100 (in percent of current armour). If missing, defaults to 0.
+ * @luafunc setHealth( p, armour, shield, stress )
  */
 static int pilotL_setHealth( lua_State *L )
 {
    Pilot *p;
-   double a, s;
+   double a, s, st;
 
    /* Handle parameters. */
    p  = luaL_validpilot(L,1);
    a  = luaL_checknumber(L, 2);
    s  = luaL_checknumber(L, 3);
-   a /= 100.;
-   s /= 100.;
+   if (lua_gettop(L) > 3)
+      st = luaL_checknumber(L, 4);
+   else
+      st = 0;
+
+   a  /= 100.;
+   s  /= 100.;
+   st /= 100.;
 
    /* Set health. */
    p->armour = a * p->armour_max;
    p->shield = s * p->shield_max;
+   p->stress = st * p->armour;
 
-   /* Undisable if was disabled. */
-   pilot_rmFlag( p, PILOT_DISABLED );
+   /* Update disable status. */
+   pilot_updateDisable(p, 0);
 
    return 0;
 }
@@ -2257,10 +2334,10 @@ static int pilotL_setNodisable( lua_State *L )
 /**
  * @brief Gets the pilot's health.
  *
- * @usage armour, shield, dis = p:health()
+ * @usage armour, shield, stress, dis = p:health()
  *
  *    @luaparam p Pilot to get health of.
- *    @luareturn The armour and shield of the pilot in % [0:100], followed by a boolean indicating if piloti s disabled.
+ *    @luareturn The armour, shield nd stress of the pilot in % [0:100], followed by a boolean indicating if pilot is disabled.
  * @luafunc health( p )
  */
 static int pilotL_getHealth( lua_State *L )
@@ -2273,9 +2350,10 @@ static int pilotL_getHealth( lua_State *L )
    /* Return parameters. */
    lua_pushnumber(L, p->armour / p->armour_max * 100. );
    lua_pushnumber(L, p->shield / p->shield_max * 100. );
+   lua_pushnumber(L, MIN( 1., p->stress / p->armour ) * 100. );
    lua_pushboolean(L, pilot_isDisabled(p));
 
-   return 3;
+   return 4;
 }
 
 
@@ -2336,6 +2414,7 @@ lua_rawset( L, -3 )
  *  <li> cpu <br />
  *  <li> cpu_max <br />
  *  <li> fuel <br />
+ *  <li> fuel_max <br />
  *  <li> thrust <br />
  *  <li> speed <br />
  *  <li> turn <br />
@@ -2369,6 +2448,7 @@ static int pilotL_getStats( lua_State *L )
    PUSH_DOUBLE( L, "cpu", p->cpu );
    PUSH_DOUBLE( L, "cpu_max", p->cpu_max );
    PUSH_DOUBLE( L, "fuel", p->fuel );
+   PUSH_DOUBLE( L, "fuel_max", p->fuel_max );
    PUSH_DOUBLE( L, "mass", p->solid->mass );
    /* Movement. */
    PUSH_DOUBLE( L, "thrust", p->thrust );
@@ -2522,7 +2602,7 @@ static int pilotL_cargoRm( lua_State *L )
  * The list has the following members:<br />
  * <ul>
  * <li><b>name:</b> name of the cargo.
- * <li><b>q:</b> quantity of the targo.
+ * <li><b>q:</b> quantity of the cargo.
  * <li><b>m:</b> true if cargo is for a mission.
  * </ul>
  *
@@ -2579,14 +2659,7 @@ static int pilotL_getColour( lua_State *L )
    /* Get the pilot. */
    p = luaL_validpilot(L,1);
 
-   /* Set as hostile. */
-   if (pilot_inRangePilot(player.p, p) == -1) col = &cMapNeutral;
-   else if (pilot_isDisabled(p)) col = &cInert;
-   else if (pilot_isFlag(p,PILOT_BRIBED)) col = &cNeutral;
-   else if (pilot_isHostile(p)) col = &cHostile;
-   else if (pilot_isFriendly(p)) col = &cFriend;
-   else col = faction_getColour(p->faction);
-
+   col = pilot_getColour(p);
    memcpy( &lc.col, col, sizeof(glColour) );
    lua_pushcolour( L, lc );
 
@@ -2917,7 +2990,7 @@ static Task *pilotL_newtask( lua_State *L, Pilot* p, const char *task )
  * @usage p:goto( v ) -- Goes to v precisely and braking
  * @usage p:goto( v, true, true ) -- Same as p:goto( v )
  * @usage p:goto( v, false ) -- Goes to v without braking compensating velocity
- * @usage p:goto( v, false, false ) -- Really rough aproximation of going to v without braking
+ * @usage p:goto( v, false, false ) -- Really rough approximation of going to v without braking
  *
  *    @luaparam p Pilot to tell to go to a position.
  *    @luaparam v Vector target for the pilot.
@@ -3138,8 +3211,9 @@ static int pilotL_runaway( lua_State *L )
  *
  *    @luaparam p Pilot to tell to hyperspace.
  *    @luaparam sys Optional system argument to jump to, uses random if nil.
+ *    @luaparam shoot Optional whether or not to shoot at targets while running away with turrets.
  * @luasee control
- * @luafunc hyperspace( p, sys )
+ * @luafunc hyperspace( p, sys, shoot )
  */
 static int pilotL_hyperspace( lua_State *L )
 {
@@ -3150,6 +3224,7 @@ static int pilotL_hyperspace( lua_State *L )
    int i;
    JumpPoint *jp;
    double a, rad;
+   int shoot;
 
    /* Get parameters. */
    p = luaL_validpilot(L,1);
@@ -3159,9 +3234,13 @@ static int pilotL_hyperspace( lua_State *L )
    }
    else
       sys = NULL;
+   shoot = lua_toboolean(L,3);
 
    /* Set the task. */
-   t = pilotL_newtask( L, p, "__hyperspace" );
+   if (shoot)
+      t = pilotL_newtask( L, p, "__hyperspace_shoot" );
+   else
+      t = pilotL_newtask( L, p, "__hyperspace" );
    if (sys != NULL) {
       /* Find the jump. */
       for (i=0; i < cur_system->njumps; i++) {

@@ -21,11 +21,11 @@
 
 
 /**
- * @brief Ano verlay map marker.
+ * @brief An overlay map marker.
  */
 typedef struct ovr_marker_s {
    unsigned int id; /**< ID of the marker. */
-   char *text; /**< Marker dispaly text. */
+   char *text; /**< Marker display text. */
    int type; /**< Marker type. */
    union {
       struct {
@@ -289,7 +289,7 @@ void ovr_render( double dt )
       else
          gui_renderPilot( pstk[i], RADAR_RECT, w, h, res, 1 );
    }
-   /* Render the targetted pilot */
+   /* Render the targeted pilot */
    if (j!=0)
       gui_renderPilot( pstk[j], RADAR_RECT, w, h, res, 1 );
 
@@ -347,7 +347,7 @@ void ovr_mrkFree (void)
    /* Clear markers. */
    ovr_mrkClear();
 
-   /* Free arary. */
+   /* Free array. */
    if (ovr_markers != NULL)
       array_free( ovr_markers );
    ovr_markers = NULL;
@@ -355,7 +355,7 @@ void ovr_mrkFree (void)
 
 
 /**
- * @brief Clears the curent markers.
+ * @brief Clears the current markers.
  */
 void ovr_mrkClear (void)
 {

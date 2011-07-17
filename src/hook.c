@@ -51,7 +51,7 @@ typedef struct HookQueue_s {
    struct HookQueue_s *next; /**< Next in linked list. */
    char *stack;         /**< Stack to run. */
    unsigned int id;     /**< Run specific hook. */
-   HookParam hparam[3]; /**< Parameters. */
+   HookParam hparam[ HOOK_MAX_PARAM ]; /**< Parameters. */
 } HookQueue_t;
 static HookQueue_t *hook_queue   = NULL; /**< The hook queue. */
 static int hook_atomic           = 0; /**< Whether or not hooks should be queued. */
@@ -86,7 +86,7 @@ typedef struct Hook_ {
 
    /* Timer information. */
    int is_timer; /**< Whether or not is actually a timer. */
-   double ms; /**< Miliseconds left. */
+   double ms; /**< Milliseconds left. */
 
    /* Date information. */
    int is_date; /**< Whether or not it is a date hook. */
@@ -257,7 +257,7 @@ static int hook_parseParam( lua_State *L, HookParam *param )
       return 0;
 
    n = 0;
-   while (param[n].type != HOOK_PARAM_SENTINAL) {
+   while (param[n].type != HOOK_PARAM_SENTINEL) {
       switch (param[n].type) {
          case HOOK_PARAM_NIL:
             lua_pushnil( L );
@@ -273,6 +273,9 @@ static int hook_parseParam( lua_State *L, HookParam *param )
             break;
          case HOOK_PARAM_PILOT:
             lua_pushpilot( L, param[n].u.lp );
+            break;
+         case HOOK_PARAM_FACTION:
+            lua_pushfaction( L, param[n].u.lf );
             break;
 
          default:
@@ -336,7 +339,7 @@ static int hook_runMisn( Hook *hook, HookParam *param, int claims )
 
    /* Run mission code. */
    hook->ran_once = 1;
-   if (misn_runFunc( misn, hook->u.misn.func, n ) < 0) { /* error has occured */
+   if (misn_runFunc( misn, hook->u.misn.func, n ) < 0) { /* error has occurred */
       WARN("Hook [%s] '%d' -> '%s' failed", hook->stack,
             hook->id, hook->u.misn.func);
       return -1;
@@ -589,7 +592,7 @@ unsigned int hook_addTimerMisn( unsigned int parent, const char *func, double ms
  *
  *    @param parent Hook event parent.
  *    @param func Function to run when hook is triggered.
- *    @param ms Miliseconds to wait.
+ *    @param ms Milliseconds to wait.
  *    @return The new hook identifier.
  */
 unsigned int hook_addTimerEvt( unsigned int parent, const char *func, double ms )
@@ -830,6 +833,7 @@ static Mission *hook_getMission( Hook *hook )
    for (i=0; i<MISSION_MAX; i++)
       if (player_missions[i].id == hook->u.misn.parent)
          return &player_missions[i];
+
    return NULL;
 }
 
@@ -846,6 +850,7 @@ void hook_rm( unsigned int id )
    h = hook_get( id );
    if (h==NULL)
       return;
+
    hook_rmRaw( h );
 }
 
@@ -857,6 +862,7 @@ static void hook_rmRaw( Hook *h )
 {
    Mission *misn;
    Event_t *evt;
+
    h->delete = 1;
    switch (h->type) {
       case HOOK_TYPE_MISN:
@@ -885,12 +891,10 @@ static void hook_rmRaw( Hook *h )
 void hook_rmMisnParent( unsigned int parent )
 {
    Hook *h;
-   for (h=hook_list; h!=NULL; h=h->next) {
-      if ((h->type==HOOK_TYPE_MISN) &&
-            (parent == h->u.misn.parent)) {
+
+   for (h=hook_list; h!=NULL; h=h->next)
+      if ((h->type==HOOK_TYPE_MISN) && (parent == h->u.misn.parent))
          h->delete = 1;
-      }
-   }
 }
 
 
@@ -903,12 +907,9 @@ void hook_rmEventParent( unsigned int parent )
 {
    Hook *h;
 
-   for (h=hook_list; h!=NULL; h=h->next) {
-      if ((h->type==HOOK_TYPE_EVENT) &&
-            (parent == h->u.event.parent)) {
+   for (h=hook_list; h!=NULL; h=h->next)
+      if ((h->type==HOOK_TYPE_EVENT) && (parent == h->u.event.parent))
          h->delete = 1;
-      }
-   }
 }
 
 
@@ -922,13 +923,12 @@ int hook_hasMisnParent( unsigned int parent )
 {
    int num;
    Hook *h;
+
    num = 0;
-   for (h=hook_list; h!=NULL; h=h->next) {
-      if ((h->type==HOOK_TYPE_MISN) &&
-            (parent == h->u.misn.parent)) {
+   for (h=hook_list; h!=NULL; h=h->next)
+      if ((h->type==HOOK_TYPE_MISN) && (parent == h->u.misn.parent))
          num++;
-      }
-   }
+
    return num;
 }
 
@@ -943,13 +943,12 @@ int hook_hasEventParent( unsigned int parent )
 {
    int num;
    Hook *h;
+
    num = 0;
-   for (h=hook_list; h!=NULL; h=h->next) {
-      if ((h->type==HOOK_TYPE_EVENT) &&
-            (parent == h->u.event.parent)) {
+   for (h=hook_list; h!=NULL; h=h->next)
+      if ((h->type==HOOK_TYPE_EVENT) && (parent == h->u.event.parent))
          num++;
-      }
-   }
+
    return num;
 }
 
@@ -1022,12 +1021,15 @@ int hooks_runParam( const char* stack, HookParam *param )
 
    /* Not time to run hooks, so queue them. */
    if (hook_atomic) {
-      WARN("Stack '%s' being run in hook exclusion area!", stack);
       hq = calloc( 1, sizeof(HookQueue_t) );
       hq->stack = strdup(stack);
-      for (i=0; param[i].type != HOOK_PARAM_SENTINAL; i++)
+      for (i=0; param[i].type != HOOK_PARAM_SENTINEL; i++)
          memcpy( &hq->hparam[i], &param[i], sizeof(HookParam) );
-      hq->hparam[i].type = HOOK_PARAM_SENTINAL;
+#ifdef DEBUGGING
+      if (i >= HOOK_MAX_PARAM)
+         WARN( "HOOK_MAX_PARAM is set too low (%d), need at least %d!", HOOK_MAX_PARAM, i );
+#endif /* DEBUGGING */
+      hq->hparam[i].type = HOOK_PARAM_SENTINEL;
       hq_add( hq );
       return 0;
    }
@@ -1058,6 +1060,7 @@ static Hook* hook_get( unsigned int id )
    for (h=hook_list; h!=NULL; h=h->next)
       if (h->id == id)
          return h;
+
    return NULL;
 }
 
@@ -1167,7 +1170,7 @@ void hook_cleanup (void)
 static int hook_needSave( Hook *h )
 {
    int i;
-   char *nosave[] = {
+   const char *nosave[] = {
          "p_death", "p_board", "p_disable", "p_jump", "p_attacked", "p_idle", /* pilot hooks */
          "timer", /* timers */
          "end" };
@@ -1178,6 +1181,10 @@ static int hook_needSave( Hook *h )
 
    /* Events must need saving. */
    if ((h->type == HOOK_TYPE_EVENT) && !event_save(h->u.event.parent))
+      return 0;
+
+   /* Must not be pending deletion. */
+   if (h->delete)
       return 0;
 
    /* Make sure it's in the proper stack. */
@@ -1357,12 +1364,10 @@ static int hook_parse( xmlNodePtr base )
          }
 
          /* Create the hook. */
-         if (type == HOOK_TYPE_MISN) {
+         if (type == HOOK_TYPE_MISN)
             new_id = hook_addMisn( parent, func, stack );
-         }
-         if (type == HOOK_TYPE_EVENT) {
+         if (type == HOOK_TYPE_EVENT)
             new_id = hook_addEvent( parent, func, stack );
-         }
 
          /* Set the id. */
          if (id != 0) {
@@ -1380,5 +1385,3 @@ static int hook_parse( xmlNodePtr base )
 
    return 0;
 }
-
-

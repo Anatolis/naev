@@ -2,14 +2,6 @@
 --    Generic attack functions
 --]]
 
-mem.atk_changetarget  = 2 -- Distance at which target changes
-mem.atk_approach      = 1.4 -- Distance that marks approach
-mem.atk_aim           = 1.0 -- Distance that marks aim
-mem.atk_board         = false -- Whether or not to board the target
-mem.atk_kill          = true -- Whether or not to finish off the target
-mem.aggressive        = true --whether to take the more aggressive or more evasive option when given
-mem.recharge          = false --whether to hold off shooting to avoid running dry of energy
-
 --[[
 -- Mainly manages targetting nearest enemy.
 --]]
@@ -141,11 +133,9 @@ end
 -- Approaches the target
 --]]
 function atk_g_approach( target, dist )
-
    dir = ai.idir(target)
-   
    if dir < 10 and dir > -10 then
-        keep_distance()
+      _atk_keep_distance()
    else
       dir = ai.iface(target)
    end
@@ -192,57 +182,27 @@ end
 -- This will tend to approach a target along a loose spiral, good for evading capship guns
 --]]
 function atk_spiral_approach( target, dist )
+   local dir  = ai.idir(target)
+   local adir = math.abs(dir)
 
-  local dir = ai.idir(target)
-  
-  --these two detect in-cone approach vectors
-  
-  if dir > 10 then
-    if dir < 30 then
-    
-        ai.accel()
-    
-    end
-  end
-  
-  
-  if dir < -10 then
-    if dir > -30 then
-    
-        ai.accel();
-    
-    end
-  end
+   --these two detect in-cone approach vectors
+   if adir > 10 and adir < 30 then
+      ai.accel()
+   end
 
---facing away from the target, turn to face
+   --facing away from the target, turn to face
+   if adir > 30 then
+      ai.iface(target)
+   end
 
-  if dir < -30 then
-    ai.iface(target)
-  end
-  
-  if dir > 30 then
-    ai.iface(target)
-  end
-
---aiming right at the target; turn away
-
-  if dir > 0 then
-    if dir < 10 then
-    
+   --aiming right at the target; turn away
+   if dir > 0 and dir < 10 then
       ai.turn(1)
-    
-    end
-  end
-
-  if dir < 0 then
-    if dir > -10 then
-    
+   elseif dir < 0 and dir > -10 then
       ai.turn(-1)
-    
-    end
-  end
-
+   end
 end -- end spiral approach
+
 
 --[[
 --Attempts to maintain a constant distance from nearby things
@@ -250,35 +210,26 @@ end -- end spiral approach
 --]]
 function keep_distance()
 
---anticipate this will be added to eliminate potentially silly behavior if it becomes a problem
---local flight_offset = ai.drift_facing()
+   --anticipate this will be added to eliminate potentially silly behavior if it becomes a problem
+   --local flight_offset = ai.drift_facing()
 
+   --find nearest thing
+   local neighbor = ai.nearestpilot()
+   if not ai.exists(neighbor) then
+      return
+   end
 
-local perp_distance
-
-
-    --find nearest thing
-  local neighbor = ai.nearestpilot()
- 
-  if ai.exists(neighbor) then
- 
-    --find the distance based on the direction I'm travelling
-    perp_distance = ai.flyby_dist(neighbor)
-
-    --adjust my direction of flight to account for this
-
-    --if pilot is too close, turn away
-    
-    if perp_distance < 0 and perp_distance > -50 then
-        ai.turn(1)
-    end
-    
-    if perp_distance > 0 and perp_distance < 50 then
-        ai.turn(-1)
-    end    
-  end
-    
+   --find the distance based on the direction I'm travelling
+   local perp_distance = ai.flyby_dist(neighbor)
+   -- adjust my direction of flight to account for this
+   -- if pilot is too close, turn away
+   if perp_distance < 0 and perp_distance > -50 then
+      ai.turn(1)
+   elseif perp_distance > 0 and perp_distance < 50 then
+      ai.turn(-1)
+   end    
 end -- end keep distance
+
 
 --[[
 -- Mainly targets small fighters.
@@ -301,17 +252,16 @@ function atk_fighter_think ()
    local target = ai.target()
 
    -- Stop attacking if it doesn't exist
-        if not ai.exists(target) then
-                ai.poptask()
-                return
-        end
+   if not ai.exists(target) then
+      ai.poptask()
+      return
+   end
 
    local range = ai.getweaprange(3, 0)
 
    -- Get new target if it's closer
    --prioritize targets within the size limit
    if enemy ~= target and enemy ~= nil then
-      
       -- Shouldn't switch targets if close
       if sizedist > range * mem.atk_changetarget then
          ai.pushtask("attack", enemy )
@@ -470,62 +420,6 @@ function atk_fighter ()
       else
         atk_g_flyby_aggressive( target, dist )
       end
-   end
-end
-
-
---[[
--- Main control function for bomber behavior.
--- Bombers are expected to have heavy weapons and target
---ships bigger than they are
---]]
-function atk_bomber ()
-
-   local target = ai.target()
-
-   -- make sure pilot exists
-   if not ai.exists(target) then
-           ai.poptask()
-           return
-   end
-
-   -- Check if is bribed by target
-   if ai.isbribed(target) then
-      ai.poptask()
-      return
-   end
-
-   -- Check if we want to board
-   if mem.atk_board and ai.canboard(target) then
-      ai.pushtask("board", target );
-      return
-   end
-
-   -- Check to see if target is disabled
-   if not mem.atk_kill and ai.isdisabled(target) then
-      ai.poptask()
-      return
-   end
-
-   -- Targetting stuff
-   ai.hostile(target) -- Mark as hostile
-   ai.settarget(target)
-
-   -- Get stats about enemy
-        local dist  = ai.dist( target ) -- get distance
-   local range = ai.getweaprange(3, 0)
-
-   -- We first bias towards range
-   if dist > range * mem.atk_approach then
-      atk_g_ranged( target, dist )
-
-   -- Now we do an approach
-   --elseif dist > 10 * range * mem.atk_aim then
-   --   atk_spiral_approach( target, dist )
-
-   -- Close enough to melee
-   else
-        atk_g_flyby( target, dist )   
    end
 end
 

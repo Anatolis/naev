@@ -179,6 +179,28 @@ end
 function __hyperspace ()
    hyperspace()
 end
+function __hyperspace_shoot ()
+   local target = ai.target()
+   if target == nil then
+      target = ai.rndhyptarget()
+      if target == nil then
+         return
+      end
+   end
+   ai.pushsubtask( "__hyp_approach_shoot", target )
+end
+function __hyp_approach_shoot ()
+   -- Shoot
+   if ai.hasturrets() then
+      enemy = ai.getenemy()
+      if enemy ~= nil then
+         ai.weapset( 3 )
+         ai.settarget( enemy )
+         ai.shoot( true )
+      end
+   end
+   __hyp_approach()
+end
 
 
 function __land ()
@@ -244,7 +266,14 @@ end
 --]]
 function runaway ()
    if __run_target() then return end
-   ai.pushsubtask( "__run_hyp", ai.nearhyptarget() )
+
+   -- See if there's a target to use when running
+   local t = ai.nearhyptarget()
+   if t == nil then
+      ai.pushsubtask( "__run_target" )
+   else
+      ai.pushsubtask( "__run_hyp", t )
+   end
 end
 function runaway_nojump ()
    if __run_target() then return end

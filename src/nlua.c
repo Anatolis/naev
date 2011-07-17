@@ -49,7 +49,7 @@ lua_State *nlua_newState (void)
    /* try to create the new state */
    L = luaL_newstate();
    if (L == NULL) {
-      WARN("Failed to create new lua state.");
+      WARN("Failed to create new Lua state.");
       return NULL;
    }
 
@@ -58,7 +58,7 @@ lua_State *nlua_newState (void)
 
 
 /**
- * @brief Opens a lua library.
+ * @brief Opens a Lua library.
  *
  *    @param L Lua state to load the library into.
  *    @param f CFunction to load.
@@ -100,12 +100,6 @@ int nlua_loadBasic( lua_State* L )
 
 
    luaL_openlibs(L);
-#if 0
-   nlua_load(L, luaopen_base); /* open base. */
-   nlua_load(L, luaopen_math); /* open math. */
-   nlua_load(L, luaopen_table); /* open table. */
-   nlua_load(L, luaopen_string); /* open string. */
-#endif
 
    /* replace non-safe functions */
    for (i=0; strcmp(override[i],"END")!=0; i++) {

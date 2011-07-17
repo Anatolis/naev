@@ -47,7 +47,7 @@ typedef enum tech_item_type_e {
 typedef struct tech_item_s {
    tech_item_type_t type;  /**< Type of data. */
    union {
-      void *ptr;           /**< Pointer when needing to do indiferent voodoo. */
+      void *ptr;           /**< Pointer when needing to do indifferent voodoo. */
       Outfit *outfit;      /**< Outfit pointer. */
       Ship *ship;          /**< Ship pointer. */
       Commodity *comm;     /**< Commodity pointer. */
@@ -157,7 +157,7 @@ int tech_load (void)
       if (!xml_isNode(node, XML_TECH_TAG))
          continue;
 
-      /* Must avood warning by checking explicit NULL. */
+      /* Must avoid warning by checking explicit NULL. */
       xmlr_attr( node, "name", buf );
       if (buf == NULL)
          continue;
@@ -214,14 +214,26 @@ static void tech_freeGroup( tech_group_t *grp )
 
 
 /**
- * @brief Creates a tech group.
+ * @brief Creates a tech group from an XML node.
  */
-tech_group_t *tech_groupCreate( xmlNodePtr node )
+tech_group_t *tech_groupCreateXML( xmlNodePtr node )
 {
    tech_group_t *tech;
    /* Load data. */
-   tech  = calloc( sizeof(tech_group_t), 1 );
+   tech  = tech_groupCreate();
    tech_parseNodeData( tech, node );
+   return tech;
+}
+
+
+/**
+ * @brief Creates a tech group.
+ */
+tech_group_t *tech_groupCreate( void )
+{
+   tech_group_t *tech;
+
+   tech = calloc( sizeof(tech_group_t), 1 );
    return tech;
 }
 
@@ -328,7 +340,7 @@ static int tech_parseNodeData( tech_group_t *tech, xmlNodePtr parent )
             continue;
          }
 
-         /* Try to find hardcoded type. */
+         /* Try to find hard-coded type. */
          buf = xml_nodeProp( node, "type" );
          if (buf == NULL) {
             ret = 1;
@@ -476,7 +488,7 @@ int tech_addItem( const char *name, const char *value )
    /* Comfort. */
    tech  = &tech_groups[id];
 
-   /* Try to add the techu. */
+   /* Try to add the tech. */
    ret = tech_addItemGroup( tech, value );
    if (ret)
       ret = tech_addItemOutfit( tech, value );
@@ -490,6 +502,53 @@ int tech_addItem( const char *name, const char *value )
    }
 
    return 0;
+}
+
+
+/**
+ * @brief Adds an item to a tech.
+ */
+int tech_addItemTech( tech_group_t *tech, const char *value )
+{
+   int ret;
+
+   /* Try to add the tech. */
+   ret = tech_addItemGroup( tech, value );
+   if (ret)
+      ret = tech_addItemOutfit( tech, value );
+   if (ret)
+      ret = tech_addItemShip( tech, value );
+   if (ret)
+      ret = tech_addItemCommodity( tech, value );
+   if (ret) {
+      WARN("Generic item '%s' not found in tech group", value );
+      return -1;
+   }
+
+   return 0;
+}
+
+
+/**
+ * @brief Removes an item from a tech.
+ */
+int tech_rmItemTech( tech_group_t *tech, const char *value )
+{
+   int i, s;
+   char *buf;
+
+   /* Iterate over to find it. */
+   s = array_size( tech->items );
+   for (i=0; i<s; i++) {
+      buf = tech_getItemName( &tech->items[i] );
+      if (strcmp(buf, value)==0) {
+         array_erase( &tech->items, &tech->items[i], &tech->items[i+1] );
+         return 0;
+      }
+   }
+
+   WARN("Item '%s' not found in tech group", value );
+   return -1;
 }
 
 
@@ -535,7 +594,7 @@ static int tech_getID( const char *name )
    int i, s;
    tech_group_t *tech;
 
-   /* NULL cas. */
+   /* NULL case. */
    if (tech_groups == NULL)
       return -1;
 
@@ -673,7 +732,73 @@ static void** tech_addGroupItem( void **items, tech_item_type_t type, tech_group
 
 
 /**
- * @brief Gets all of the outfits assosciated to a tech group.
+ * @brief Checks whether a given tech group has the specified item.
+ *
+ *    @param tech Tech to search within.
+ *    @param item The item name to search for.
+ *    @return Whether or not the item was found.
+ */
+int tech_hasItem( tech_group_t *tech, char *item )
+{
+   int i, s;
+   char *buf;
+
+   s = array_size( tech->items );
+   for (i=0; i<s; i++) {
+      buf = tech_getItemName( &tech->items[i] );
+      if (strcmp(buf,item)==0)
+         return 1;
+   }
+
+   return 0;
+}
+
+
+/**
+ * @brief Gets the names of all techs within a given group.
+ *
+ *    @param tech Tech group to operate on.
+ *    @param[out] n Number of techs in the group.
+ *    @return The names of the techs contained within the group.
+ */
+char** tech_getItemNames( tech_group_t *tech, int *n )
+{
+   int i, s;
+   char **names;
+
+   *n = s = array_size( tech->items );
+   names = malloc( sizeof(char*) * s );
+
+   for (i=0; i<s; i++)
+      names[i] = strdup( tech_getItemName( &tech->items[i] ) );
+
+   return names;
+}
+
+
+/**
+ * @brief Gets the names of all techs.
+ *
+ *    @param[out] n Number of techs.
+ *    @return The names of all techs.
+ */
+char** tech_getAllItemNames( int *n )
+{
+   int i, s;
+   char **names;
+
+   *n = s = array_size( tech_groups );
+   names = malloc( sizeof(char*) * s );
+
+   for (i=0; i<s; i++)
+      names[i] = strdup( tech_groups[i].name );
+
+   return names;
+}
+
+
+/**
+ * @brief Gets all of the outfits associated to a tech group.
  *
  * @note The returned list must be freed (but not the pointers).
  *
@@ -727,7 +852,7 @@ Outfit** tech_getOutfitArray( tech_group_t **tech, int num, int *n )
 
 
 /**
- * @brief Gets all of the ships assosciated to a tech group.
+ * @brief Gets all of the ships associated to a tech group.
  *
  * @note The returned array must be freed (but not the pointers).
  *
@@ -752,7 +877,7 @@ Ship** tech_getShip( tech_group_t *tech, int *n )
    }
 
    /* Sort. */
-   qsort( s, *n, sizeof(Ship*), outfit_compareTech );
+   qsort( s, *n, sizeof(Ship*), ship_compareTech );
    return s;
 }
 
@@ -804,7 +929,7 @@ Commodity** tech_getCommodityArray( tech_group_t **tech, int num, int *n )
 
 
 /**
- * @brief Gets all of the ships assosciated to a tech group.
+ * @brief Gets all of the ships associated to a tech group.
  *
  * @note The returned array must be freed (but not the pointers).
  *

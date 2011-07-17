@@ -23,7 +23,7 @@
  *    @param results Stores both results.
  *    @param a Quadratic parameter.
  *    @param b Linear parameter.
- *    @param c Offset coeficient.
+ *    @param c Offset coefficient.
  *    @return 0 on success, -1 on error.
  */
 int nmath_solve2Eq( double results[2], double a, double b, double c )
@@ -76,16 +76,17 @@ double min3( double v1, double v2, double v3 )
  *    @param n Number of elements in the array.
  *    @return Randomly-ordered array.
  */
-char** arrayShuffle( char** array, int n)
+void** arrayShuffle( void** array, int n)
 {
-   char* tmp;
+   void* tmp;
    int k;
 
    while (n > 1) {
-      k = RNG(0, n);
-      tmp = array[--n];
+      k        = RNG(0, n);
+      tmp      = array[--n];
       array[n] = array[k];
       array[k] = tmp;
    }
+
    return array;
 }

@@ -50,6 +50,7 @@
 #include "conf.h"
 #include "nebula.h"
 #include "camera.h"
+#include "pilot.h"
 #include "nlua.h"
 #include "nluadef.h"
 #include "nlua_gfx.h"
@@ -83,7 +84,7 @@ static double blink_planet    = 0.; /**< Timer on planet blinking on radar. */
 static gl_vbo *gui_vbo = NULL; /**< GUI VBO. */
 static GLsizei gui_vboColourOffset = 0; /**< Offset of colour pixels. */
 
-static int gui_getMessage     = 1; /**< Whether or not the palyer should recieve messages. */
+static int gui_getMessage     = 1; /**< Whether or not the player should receive messages. */
 
 /*
  * pilot stuff for GUI
@@ -100,7 +101,7 @@ extern int map_npath; /**< @todo remove. */
 /**
  * GUI Lua stuff.
  */
-static lua_State *gui_L; /**< Current GUI lua State. */
+static lua_State *gui_L; /**< Current GUI Lua State. */
 static int gui_L_mclick = 0; /**< Use mouse click callback. */
 static int gui_L_mmove = 0; /**< Use mouse movement callback. */
 
@@ -156,7 +157,7 @@ typedef struct Mesg_ {
    double t; /**< Time to live for the message. */
    glFontRestore restore; /**< Hack for font restoration. */
 } Mesg;
-static Mesg* mesg_stack = NULL; /**< Stack of mesages, will be of mesg_max size. */
+static Mesg* mesg_stack = NULL; /**< Stack of messages, will be of mesg_max size. */
 static int gui_mesg_w   = 0; /**< Width of messages. */
 static int gui_mesg_x   = 0; /**< X positioning of messages. */
 static int gui_mesg_y   = 0; /**< Y positioning of messages. */
@@ -167,10 +168,10 @@ static double gui_br = 0.; /**< Border bottom-right. */
 static double gui_tl = 0.; /**< Border top-left. */
 static double gui_bl = 0.; /**< Border bottom-left. */
 
-/* Intrinsec graphical stuff. */
+/* Intrinsic graphical stuff. */
 static glTexture *gui_ico_hail      = NULL; /**< Hailing icon. */
-static glTexture *gui_target_planet = NULL; /**< Planet targetting icon. */
-static glTexture *gui_target_pilot  = NULL; /**< Pilot targetting icon. */
+static glTexture *gui_target_planet = NULL; /**< Planet targeting icon. */
+static glTexture *gui_target_pilot  = NULL; /**< Pilot targeting icon. */
 
 
 /*
@@ -292,9 +293,9 @@ void gui_messageScrollDown( int lines )
 
 
 /**
- * @brief Toggles if player should recieve messages.
+ * @brief Toggles if player should receive messages.
  *
- *    @param enable Whether or not to enable player recieving messages.
+ *    @param enable Whether or not to enable player receiving messages.
  */
 void player_messageToggle( int enable )
 {
@@ -311,7 +312,7 @@ void player_messageRaw( const char *str )
 {
    int i, p, l;
 
-   /* Must be recieving messages. */
+   /* Must be receiving messages. */
    if (!gui_getMessage)
       return;
 
@@ -363,7 +364,7 @@ void player_message( const char *fmt, ... )
    va_list ap;
    char buf[1024];
 
-   /* Must be recieving messages. */
+   /* Must be receiving messages. */
    if (!gui_getMessage)
       return;
 
@@ -425,7 +426,7 @@ static void gui_renderPlanetTarget( double dt )
    }
    if (player.p->nav_planet >= 0) {
       planet = cur_system->planets[player.p->nav_planet];
-      c = faction_getColour(planet->faction);
+      c = planet_getColour( planet );
 
       x = planet->pos.x - planet->radius * 1.2;
       y = planet->pos.y + planet->radius * 1.2;
@@ -487,14 +488,14 @@ static void gui_renderPilotTarget( double dt )
 
    /* Make sure pilot exists and is still alive. */
    if ((p==NULL) || pilot_isFlag(p,PILOT_DEAD)) {
-      player.p->target = PLAYER_ID;
+      pilot_setTarget( player.p, player.p->id );
       gui_setTarget();
       return;
    }
 
    /* Make sure target is still in range. */
    if (!pilot_inRangePilot( player.p, p )) {
-      player.p->target = PLAYER_ID;
+      pilot_setTarget( player.p, player.p->id );
       gui_setTarget();
       return;
    }
@@ -778,9 +779,9 @@ int gui_onScreenPilot( double *rx, double *ry, Pilot *pilot )
    cw = SCREEN_W/2 + tex->sw/2;
    ch = SCREEN_H/2 + tex->sh/2;
 
-   if ((ABS(*rx) > cw) || (ABS(*ry) > ch)) {
+   if ((ABS(*rx) > cw) || (ABS(*ry) > ch))
       return  0;
-   }
+
    return 1;
 }
 
@@ -821,15 +822,15 @@ int gui_onScreenAsset( double *rx, double *ry, JumpPoint *jp, Planet *pnt )
    cw = SCREEN_W/2 + tex->sw/2;
    ch = SCREEN_H/2 + tex->sh/2;
 
-   if ((ABS(*rx) > cw) || (ABS(*ry) > ch)) {
+   if ((ABS(*rx) > cw) || (ABS(*ry) > ch))
       return  0;
-   }
+
    return 1;
 }
 
 
 /**
- * @brief Renders the gui targetting reticles.
+ * @brief Renders the gui targeting reticles.
  *
  * @param dt Current deltatick.
  */
@@ -927,7 +928,7 @@ void gui_render( double dt )
       gl_renderRect( 0., 0., SCREEN_W, SCREEN_H, &col );
    }
 
-   /* Reset vieport. */
+   /* Reset viewport. */
    gl_defViewport();
 
    /* Render messages. */
@@ -938,7 +939,7 @@ void gui_render( double dt )
 /**
  * @brief Initializes the radar.
  *
- *    @param circle Whether or not the radar is circlular.
+ *    @param circle Whether or not the radar is circular.
  */
 int gui_radarInit( int circle, int w, int h )
 {
@@ -1008,11 +1009,11 @@ void gui_radarRender( double x, double y )
       else
          gui_renderPilot( pilot_stack[i], radar->shape, radar->w, radar->h, radar->res, 0 );
    }
-   /* render the targetted pilot */
+   /* render the targeted pilot */
    if (j!=0)
       gui_renderPilot( pilot_stack[j], radar->shape, radar->w, radar->h, radar->res, 0 );
 
-   /* Intereference. */
+   /* Interference. */
    gui_renderInterference();
 
    /* Render the player cross. */
@@ -1198,22 +1199,21 @@ static void gui_renderInterference (void)
 
 
 /**
- * @brief Gets the pilot colour.
+ * @brief Gets a pilot's colour, with a special colour for targets.
  *
  *    @param p Pilot to get colour of.
  *    @return The colour of the pilot.
+ *
+ * @sa pilot_getColour
  */
 static glColour* gui_getPilotColour( const Pilot* p )
 {
    glColour *col;
 
-   if (p->id == player.p->target) col = &cRadar_tPilot;
-   else if (pilot_inRangePilot(player.p, p) == -1) col = &cMapNeutral;
-   else if (pilot_isDisabled(p)) col = &cInert;
-   else if (pilot_isFlag(p,PILOT_BRIBED)) col = &cNeutral;
-   else if (pilot_isHostile(p)) col = &cHostile;
-   else if (pilot_isFriendly(p)) col = &cFriend;
-   else col = faction_getColour(p->faction);
+   if (p->id == player.p->target)
+      col = &cRadar_tPilot;
+   else
+      col = pilot_getColour(p);
 
    return col;
 }
@@ -1264,7 +1264,7 @@ void gui_renderPilot( const Pilot* p, RadarShape shape, double w, double h, doub
          ((shape==RADAR_CIRCLE) &&
             ((x*x+y*y) > (int)(w*w))) ) {
 
-      /* Draw little targetted symbol. */
+      /* Draw little targeted symbol. */
       if (p->id == player.p->target && !overlay)
          gui_renderRadarOutOfRange( shape, w, h, x, y, &cRadar_tPilot );
       return;
@@ -1277,7 +1277,7 @@ void gui_renderPilot( const Pilot* p, RadarShape shape, double w, double h, doub
    else
       return;
 
-   /* Draw selection if targetted. */
+   /* Draw selection if targeted. */
    if (p->id == player.p->target) {
       if (blink_pilot < RADAR_BLINK_PILOT/2.) {
          /* Set up colours. */
@@ -1390,11 +1390,10 @@ static glColour *gui_getPlanetColour( int i )
 
    planet = cur_system->planets[i];
 
-   col = faction_getColour(planet->faction);
    if (i == player.p->nav_planet)
       col = &cRadar_tPlanet;
-   else if ((col != &cHostile) && !planet_hasService(planet,PLANET_SERVICE_INHABITED))
-      col = &cInert; /* Override non-hostile planets without service. */
+   else
+      col = planet_getColour( planet );
 
    return col;
 }
@@ -1492,15 +1491,14 @@ static void gui_renderRadarOutOfRange( RadarShape sh, int w, int h, int cx, int 
          sizeof(GLfloat) * 2*4, colours );
 
    /* Draw a line like for pilots. */
+   a = ANGLE(cx,cy);
    if (sh == RADAR_CIRCLE) {
-      a         = ANGLE(cx,cy);
       vertex[0] = w*cos(a);
       vertex[1] = w*sin(a);
       vertex[2] = 0.85*vertex[0];
       vertex[3] = 0.85*vertex[1];
    }
    else {
-      a = ANGLE(cx,cy);
       int cxa, cya;
       cxa = ABS(cx);
       cya = ABS(cy);
@@ -1921,7 +1919,7 @@ static int gui_runFunc( const char* func, int nargs, int nret )
 
    /* Run the function. */
    ret = lua_pcall( L, nargs, nret, errf );
-   if (ret != 0) { /* error has occured */
+   if (ret != 0) { /* error has occurred */
       err = (lua_isstring(L,-1)) ? lua_tostring(L,-1) : NULL;
       WARN("GUI Lua -> '%s': %s",
             func, (err) ? err : "unknown error");
@@ -1986,9 +1984,19 @@ void gui_setSystem (void)
 
 
 /**
+ * @brief Player's relationship with a faction was modified.
+ */
+void gui_updateFaction (void)
+{
+   if (gui_L != NULL && player.p->nav_planet != -1)
+      gui_doFunc( "update_faction" );
+}
+
+
+/**
  * @brief Calls trigger functions depending on who the pilot is.
  *
- *    @param The pilot to act base dupon.
+ *    @param The pilot to act based upon.
  */
 void gui_setGeneric (Pilot* pilot)
 {

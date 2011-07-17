@@ -250,7 +250,7 @@ void vect_uv_decomp( Vector2d* u, Vector2d* v, Vector2d* reference_vector )
  * S O L I D
  */
 /**
- * @brief Updates the solid's position using an euler integration.
+ * @brief Updates the solid's position using an Euler integration.
  *
  * Simple method
  *
@@ -260,7 +260,7 @@ void vect_uv_decomp( Vector2d* u, Vector2d* v, Vector2d* reference_vector )
  *   d x(t) / d t = a*t + v, v = constant (initial velocity)
  *   x(t) = a/2*t + v*t + p, p = constant (initial position)
  *
- *   since d t isn't actually diferential this gives us ERROR!
+ *   since dt isn't actually differential this gives us ERROR!
  *   so watch out with big values for dt
  *
  */
@@ -322,12 +322,12 @@ static void solid_update_euler (Solid *obj, const double dt)
  *
  * Main advantage comes thanks to the fact that Naev is on a 2d plane.
  *  Therefore RK chops it up in chunks and actually creates a tiny curve
- *  instead of aproximating the curve for a tiny straight line.
+ *  instead of approximating the curve for a tiny straight line.
  */
 #define RK4_MIN_H 0.01 /**< Minimal pass we want. */
 static void solid_update_rk4 (Solid *obj, const double dt)
 {
-   int i, N; /* for iteration, and pass calcualtion */
+   int i, N; /* for iteration, and pass calculation */
    double h, px,py, vx,vy; /* pass, and position/velocity values */
    double ix,iy, tx,ty, ax,ay, th; /* initial and temporary cartesian vector values */
    double vmod, vang;

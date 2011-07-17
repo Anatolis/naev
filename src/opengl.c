@@ -16,7 +16,7 @@
  * Relative:
  *  * Everything is drawn relative to the player, if it doesn't fit on screen
  *    it is clipped.
- *  * Origin (0., 0.) wouldbe ontop of the player.
+ *  * Origin (0., 0.) would be ontop of the player.
  *
  * Absolute:
  *  * Everything is drawn in "screen coordinates".
@@ -119,7 +119,7 @@ void gl_screenshot( const char *filename )
    /* Save PNG. */
    write_png( filename, rows, w, h, PNG_COLOR_TYPE_RGB, 8);
 
-   /* Check to see if an error occured. */
+   /* Check to see if an error occurred. */
    gl_checkErr();
 
    /* Free memory. */
@@ -151,8 +151,6 @@ int SDL_SavePNG( SDL_Surface *surface, const char *file )
 #endif /* SDL_VERSION_ATLEAST(1,3,0) */
 
    /* Initialize parameters. */
-   ss_rows     = NULL;
-   ss_size     = 0;
    ss_surface  = NULL;
 
    /* Set size. */
@@ -404,7 +402,7 @@ static int gl_setupFullscreen( unsigned int *flags )
    /* makes sure fullscreen mode is supported */
    if ((modes!=NULL) && ((*flags) & SDL_FULLSCREEN) && !supported) {
 
-      /* try to get closest aproximation to mode asked for */
+      /* try to get closest approximation to mode asked for */
       off = -1;
       j   = -1;
       for (i=0; modes[i] != NULL; i++) {
@@ -545,7 +543,7 @@ static int gl_defState (void)
 
 
 /**
- * @brief Checks ot see if window needs to handle scaling.
+ * @brief Checks to see if window needs to handle scaling.
  *
  *    @return 0 on success.
  */
@@ -668,7 +666,7 @@ int gl_init (void)
    glClear( GL_COLOR_BUFFER_BIT ); /* must clear the buffer first */
    gl_checkErr();
 
-   /* Load extenisons. */
+   /* Load extensions. */
    gl_initExtensions();
 
    /* Start hinting. */
@@ -718,7 +716,7 @@ void gl_viewport( int x, int y, int w, int h )
             -1., /* near */
             1. ); /* far */
 
-   /* Take into accunt possible translation. */
+   /* Take into account possible translation. */
    gl_screen.x = x;
    gl_screen.y = y;
    gl_matrixTranslate( x, y );
@@ -727,7 +725,7 @@ void gl_viewport( int x, int y, int w, int h )
    gl_screen.w = w;
    gl_screen.h = h;
 
-   /* Take into account posible scaling. */
+   /* Take into account possible scaling. */
    if (gl_screen.scale != 1.)
       gl_matrixScale( gl_screen.wscale, gl_screen.hscale );
 }

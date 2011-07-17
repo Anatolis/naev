@@ -45,6 +45,14 @@
  * will pretend to play the buffer.
  * 4) Every so often we'll check to see if the important voices are being
  * played and take away the sources from the lesser ones.
+ *
+ *
+ * EFX
+ *
+ * We use multiple effects, namely:
+ *
+ * - Air absorption factor
+ * - Reverb
  */
 
 
@@ -63,7 +71,7 @@ SDL_mutex *sound_lock = NULL; /**< Global sound lock, always lock this before
 
 
 /*
- * Global device and contex.
+ * Global device and context.
  */
 static ALCcontext *al_context = NULL; /**< OpenAL context. */
 static ALCdevice *al_device   = NULL; /**< OpenAL device. */
@@ -109,7 +117,7 @@ typedef struct alGroup_s {
    ALuint *sources; /**< Sources in the group. */
    int nsources; /**< Number of sources in the group. */
 
-   voice_state_t state; /**< Currenty global group state. */
+   voice_state_t state; /**< Currently global group state. */
    int fade_timer; /**< Fadeout timer. */
    int speed; /**< Whether or not pitch affects. */
    double volume; /**< Volume of the group. */
@@ -356,7 +364,7 @@ int sound_al_init (void)
             al_info.efx_major, al_info.efx_minor);
    DEBUG();
 
-   return 0;
+   return ret;
 
    /*
     * error handling
@@ -480,9 +488,8 @@ void sound_al_exit (void)
 
    /* Free groups. */
    for (i=0; i<al_ngroups; i++) {
-      if (al_groups[i].sources != NULL) {
+      if (al_groups[i].sources != NULL)
          free(al_groups[i].sources);
-      }
       al_groups[i].sources  = NULL;
       al_groups[i].nsources = 0;
    }
@@ -567,6 +574,9 @@ static int sound_al_loadWav( alSound *snd, SDL_RWops *rw )
       case AUDIO_U16MSB:
       case AUDIO_S16MSB:
          WARN( "Big endian WAVs unsupported!" );
+         return -1;
+      default:
+         WARN( "Invalid WAV format!" );
          return -1;
    }
 
@@ -675,9 +685,9 @@ int sound_al_load( alSound *snd, const char *filename )
    rw = ndata_rwops( filename );
 
    /* Check to see if it's an Ogg. */
-   if (ov_test_callbacks( rw, &vf, NULL, 0, sound_al_ovcall_noclose )==0) {
+   if (ov_test_callbacks( rw, &vf, NULL, 0, sound_al_ovcall_noclose )==0)
       ret = sound_al_loadOgg( snd, &vf );
-   }
+
    /* Otherwise try WAV. */
    else {
       /* Destroy the partially loaded vorbisfile. */
@@ -1132,6 +1142,11 @@ int sound_al_env( SoundEnv_t env, double param )
             /* Set per-source parameters. */
             for (i=0; i<source_ntotal; i++) {
                s = source_total[i];
+               /* Value is from 0. (normal) to 10..
+                * It represents the attenuation per meter. In this case it decreases by
+                * 0.05*AB_FACTOR dB/meter where AB_FACTOR is the air absoprtion factor.
+                * In our case each pixel represents 5 meters.
+                */
                alSourcef( s, AL_AIR_ABSORPTION_FACTOR, 3.*f );
             }
          }
@@ -1249,9 +1264,8 @@ int sound_al_playGroup( int group, alSound *s, int once )
 
          /* No free ones, just smash the last one. */
          if (j == g->nsources-1) {
-            if (state != AL_STOPPED) {
+            if (state != AL_STOPPED)
                alSourceStop( g->sources[j] );
-            }
          }
          /* Ignore playing/paused. */
          else if ((state == AL_PLAYING) || (state == AL_PAUSED))

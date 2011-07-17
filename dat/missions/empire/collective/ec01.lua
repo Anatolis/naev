@@ -21,6 +21,7 @@ else -- default english
    misn_desc = {}
    misn_desc[1] = "Scan the Collective systems for wireless communications."
    misn_desc[2] = "Travel back to %s in %s."
+   misn_desc["__save"] = true 
    
    title = {}
    title[1] = "Lt. Commander Dimitri"
@@ -115,7 +116,7 @@ end
 function land()
    if planet.cur() == misn_base and sysdone1 and sysdone2 then
       tk.msg( title[3], text[3] )
-      player.modFaction("Empire",5)
+      faction.modPlayerSingle("Empire",5)
       misn.finish(true)
    end
 end

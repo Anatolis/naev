@@ -1,4 +1,9 @@
 <Events>
+ <event name="reputation">
+  <lua>reputation</lua>
+  <trigger>load</trigger>
+  <chance>100</chance>
+ </event>
  <event name="start_event">
   <lua>start</lua>
   <trigger>none</trigger>
@@ -92,7 +97,7 @@
   <lua>flf/derelict</lua>
   <trigger>enter</trigger>
   <chance>40</chance>
-  <cond>player.getFaction("Dvaered") &gt; 10 and player.getRating() &gt; 100 and system.cur() == system.get("Surano")</cond>
+  <cond>faction.get("Dvaered"):playerStanding() &gt; 10 and player.getRating() &gt; 100 and system.cur() == system.get("Surano")</cond>
   <flags>
    <unique />
   </flags>
@@ -128,13 +133,21 @@
    <unique />
   </flags>
  </event>
- <event name="Refuse landing">
-  <lua>miners/refuse_landing</lua>
+
+ <event name="Kidnapped">
+  <lua>neutral/kidnapped</lua>
   <trigger>enter</trigger>
-  <chance>100</chance>
-  <cond>system.cur():name() == "Sirou" and var.peek("miner_status") ~= nil and var.peek("miner_status") &lt; 2</cond>
-  <flags>
-   <unique />
-  </flags>
+  <chance>15</chance>
+  <cond>player.misnDone("Kidnapped") == false and var.peek("traffic_00_active") == nil and system.cur():name() == "Arcturus"</cond>
  </event>
+ 
+  <event name="Refuse landing">
+  	<lua>miners/refuse_landing</lua>
+  	<trigger>enter</trigger>
+	<chance>100</chance>
+	<cond>system.cur():name() == "Sirou" and var.peek("miner_status") ~= nil and var.peek("miner_status") &lt; 2</cond>
+	<flags>
+		<unique />
+	</flags>
+  </event>
 </Events>

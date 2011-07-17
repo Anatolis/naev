@@ -285,8 +285,6 @@ int conf_loadConfig ( const char* file )
    int w,h;
    SDLMod m;
 
-   i = 0;
-
    /* Check to see if file exists. */
    if (!nfile_fileExists(file))
       return nfile_touch(file);
@@ -476,9 +474,8 @@ int conf_loadConfig ( const char* file )
                /* set the keybind */
                input_setKeybind( keybind_info[i][0], type, key, m );
             }
-            else {
+            else
                WARN("Malformed keybind for '%s' in '%s'.", keybind_info[i][0], file);
-            }
          }
          /* clean up after table stuff */
          lua_pop(L,1);
@@ -593,9 +590,8 @@ void conf_parseCLI( int argc, char** argv )
    }
 
    /** @todo handle multiple ndata. */
-   if (optind < argc) {
+   if (optind < argc)
       conf.ndata = strdup( argv[ optind ] );
-   }
 }
 
 
@@ -616,7 +612,7 @@ static size_t quoteLuaString(char *str, size_t size, const char *text)
    if (size == 0)
       return 0;
 
-   /* Write a lua nil if we are given a NULL pointer */
+   /* Write a Lua nil if we are given a NULL pointer */
    if (text == NULL)
       return snprintf(str, size, "nil");
 

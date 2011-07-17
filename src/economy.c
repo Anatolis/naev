@@ -8,7 +8,7 @@
  * @brief Handles economy stuff.
  *
  * Economy is handled with Nodal Analysis.  Systems are modelled as nodes,
- *  jump routes are resistances and production is modeled as node intensity.
+ *  jump routes are resistances and production is modelled as node intensity.
  *  This is then solved with linear algebra after each time increment.
  */
 
@@ -39,7 +39,7 @@
 
 #define XML_COMMODITY_ID      "Commodities" /**< XML document identifier */
 #define XML_COMMODITY_TAG     "commodity" /**< XML commodity identifier. */
-#define COMMODITY_DATA        "dat/commodity.xml" /**< Comodity XML file. */
+#define COMMODITY_DATA        "dat/commodity.xml" /**< Commodity XML file. */
 
 
 /*
@@ -112,7 +112,7 @@ void credits2str( char *str, credits_t credits, int decimals )
 
 
 /**
- * @brief Gets a commoditiy by name.
+ * @brief Gets a commodity by name.
  *
  *    @param name Name to match.
  *    @return Commodity matching name.
@@ -130,7 +130,7 @@ Commodity* commodity_get( const char* name )
 
 
 /**
- * @brief Gets a commoditiy by name without warning.
+ * @brief Gets a commodity by name without warning.
  *
  *    @param name Name to match.
  *    @return Commodity matching name.
@@ -202,11 +202,13 @@ static int commodity_parse( Commodity *temp, xmlNodePtr parent )
    /* Clear memory. */
    memset( temp, 0, sizeof(Commodity) );
 
-   temp->name = (char*)xmlGetProp(parent,(xmlChar*)"name");
-   if (temp->name == NULL) WARN("Commodity from "COMMODITY_DATA" has invalid or no name");
+   /* Get name. */
+   xmlr_attr( parent, "name", temp->name );
+   if (temp->name == NULL)
+      WARN("Commodity from "COMMODITY_DATA" has invalid or no name");
 
+   /* Parse body. */
    node = parent->xmlChildrenNode;
-
    do {
       xml_onlyNodes(node);
       xmlr_strd(node, "description", temp->description);
@@ -242,11 +244,11 @@ void commodity_Jettison( int pilot, Commodity* com, int quantity )
    int n, effect;
    double px,py, bvx, bvy, r,a, vx,vy;
 
-   p = pilot_get( pilot );
+   p   = pilot_get( pilot );
 
-   n = MAX( 1, RNG(quantity/10, quantity/5) );
-   px = p->solid->pos.x;
-   py = p->solid->pos.y;
+   n   = MAX( 1, RNG(quantity/10, quantity/5) );
+   px  = p->solid->pos.x;
+   py  = p->solid->pos.y;
    bvx = p->solid->vel.x;
    bvy = p->solid->vel.y;
    for (i=0; i<n; i++) {
@@ -288,7 +290,7 @@ int commodity_load (void)
       return -1;
    }
 
-   node = doc->xmlChildrenNode; /* Commoditys node */
+   node = doc->xmlChildrenNode; /* Commodities node */
    if (strcmp((char*)node->name,XML_COMMODITY_ID)) {
       ERR("Malformed "COMMODITY_DATA" file: missing root element '"XML_COMMODITY_ID"'");
       return -1;
@@ -382,7 +384,7 @@ credits_t economy_getPrice( const Commodity *com,
    /* Calculate price. */
    price  = (double) com->price;
    price *= sys->prices[i];
-   return (unsigned int) price;
+   return (credits_t) price;
 }
 
 
@@ -448,7 +450,7 @@ static double econ_calcSysI( unsigned int dt, StarSystem *sys, int price )
           */
          /* We base off the current production. */
          prodfactor  = planet->cur_prodfactor;
-         /* Add a variability factor based on the gaussian distribution. */
+         /* Add a variability factor based on the Gaussian distribution. */
          prodfactor += ECON_PROD_VAR * RNG_2SIGMA() * ddt;
          /* Add a tendency to return to the planet's base production. */
          prodfactor -= ECON_PROD_VAR *
@@ -499,7 +501,7 @@ static int econ_createGMatrix (void)
          R     = 1./R; /* Must be inverted. */
          Rsum += R;
 
-         /* Matrix is symetrical and non-diagonal is negative. */
+         /* Matrix is symmetrical and non-diagonal is negative. */
          ret = cs_entry( M, i, sys->jumps[j].target->id, -R );
          if (ret != 1)
             WARN("Unable to enter CSparse Matrix Cell.");
@@ -509,7 +511,7 @@ static int econ_createGMatrix (void)
       }
 
       /* Set the diagonal. */
-      Rsum += 1./ECON_SELF_RES; /* We add a resistence for dampening. */
+      Rsum += 1./ECON_SELF_RES; /* We add a resistance for dampening. */
       cs_entry( M, i, i, Rsum );
    }
 
@@ -567,7 +569,7 @@ int economy_refresh (void)
    if (econ_initialized == 0)
       return 0;
 
-   /* Create the resistence matrix. */
+   /* Create the resistance matrix. */
    if (econ_createGMatrix())
       return -1;
 
@@ -637,9 +639,8 @@ int economy_update( unsigned int dt )
        */
       scale    = 1.;
       offset   = 1.;
-      for (i=0; i<systems_nstack; i++) {
+      for (i=0; i<systems_nstack; i++)
          systems_stack[i].prices[j] = X[i] * scale + offset;
-      }
    }
 
    /* Clean up. */

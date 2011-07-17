@@ -6,8 +6,9 @@
 --      3 - The player has found the FLF base for the Dvaered, or has betrayed the FLF after rescuing the agent. Conditional for dv_antiflf03
 --]]
 
-include("scripts/fleethelper.lua")
-include("scripts/proximity.lua")
+include "scripts/fleethelper.lua" 
+include "scripts/proximity.lua"
+include "dat/missions/dvaered/common.lua"
 
 -- localization stuff, translators would work here
 lang = naev.lang()
@@ -49,7 +50,7 @@ else -- default english
     "The FLF will send out wings of fighters and bombers to engage our strike force. At this time the number and composition of ships is unknown, but it seems prudent to assume they will outnumber us by a fair margin. Your task as auxiliary escorts is to protect the strike force's flanks and intercept any FLF ships attempting to target the Obstinate. Be advised that the Obstinate will have limited anti-fighter armaments available, as most of its hull is dedicated to fighter bays. The Obstinate must not be destroyed! This is your paradigm objective!"
     On the wall, the red dots are intercepted by the white dots, and blink out of existence. Then a second group of white dots appears near the Dvaered logos, and moves towards the glowing disc.
     "As soon as the FLF have exhausted their forces trying to counterattack, the HDSF Obstinate will begin launching bombers. It is our belief that the bombers alone will be able to take out the enemy base, but in the event that resistance is heavier than expected, the Obstinate herself will move in to provide fire support."
-    The glowing disc on the wal fades out, leaving the Dvaered fleet alone and victorious.
+    The glowing disc on the wall fades out, leaving the Dvaered fleet alone and victorious.
     "That will be all. You have your orders. Report to your stations as per your timetables. I will see you all in %s. Good luck."
     
     Some time later, you are back in the Dvaered spaceport bar. You've seen action before in your career, but you still feel tense about what is to come. You decide to have another drink, just for luck.]]
@@ -77,7 +78,7 @@ else -- default english
     flagattack = "This is Obstinate, we're under fire!"
     phasetwo = "This is Obstinate. Launching bombers."
     
-    npc_desc = "This must be the Dvaered liaison you heard about. Allegedly, he may have a job to you that involves fighting the Frontier Liberation Front."
+    npc_desc = "This must be the Dvaered liaison you heard about. Allegedly, he may have a job for you that involves fighting the Frontier Liberation Front."
     
     misn_title = "Destroy the FLF base!"
     osd_desc[1] = "Fly to the %s system"
@@ -164,7 +165,7 @@ function enter()
         hook.timer(500, "proximity", {anchor = obstinate, radius = 1500, funcname = "operationStart"})
     elseif missionstarted then -- The player has jumped away from the mission theater, which instantly ends the mission and with it, the mini-campaign.
         tk.msg(failtitle[1], failtext[1])
-        faction.get("Dvaered"):modPlayerRaw(-10)
+        faction.get("Dvaered"):modPlayerSingle(-10)
         abort()
     end
     
@@ -179,16 +180,19 @@ function operationStart()
     
     idle()
     hook.timer(10000, "spawnFLFfighters")
-    hook.timer(15000, "spawnFLFfighters")
+    hook.timer(13000, "spawnFLFfighters")
+    hook.timer(15000, "spawnFLFbombers")
+    hook.timer(17000, "spawnFLFfighters")
     tim_sec = hook.timer(100000, "nextStage")
     controller = hook.timer(1000, "control")
 end
 
 function land()
-    if victorious and planet.cur() == planet.get("Darkstone") then
+    if victorious and planet.cur() == planet.get(DVplanet) then
         tk.msg(title[3], string.format(text[5], player.name()))
         tk.msg(title[3], text[6])
-        faction.get("Dvaered"):modPlayerRaw(10)
+        dv_modReputation( 5 )
+        faction.get("Dvaered"):modPlayerSingle(10)
         player.pay(100000) -- 100K
         var.pop("flfbase_intro")
         var.pop("flfbase_sysname")
@@ -266,6 +270,9 @@ function spawnDV()
     hook.pilot(obstinate, "attacked", "attackedObstinate")
     hook.pilot(obstinate, "death", "deathObstinate")
     hook.pilot(obstinate, "idle", "idle")
+
+    -- Treat player as one more
+    hook.pilot( player.pilot(), "attacked", "attacked" )
     
     local i = 1
     while i <= 4 do
@@ -314,19 +321,26 @@ function possibleDVtargets()
     return targets
 end
 
+
+-- Helper function
+function setFLF( j )
+  hook.pilot(j, "death", "deathFLF")
+  j:setNodisable(true)
+  j:setHostile()
+  j:setVisible(true)
+  j:control()
+end
+
+
 -- Spawns FLF fighters
 function spawnFLFfighters()
     wavefirst = true
     wavestarted = true
     local targets = possibleDVtargets()
-    wingFLF = addShips( "FLF Vendetta", "flf_norun", base:pos(), 3 )
+    local wingFLF = addShips( "FLF Vendetta", "flf_norun", base:pos(), 3 )
     for i, j in ipairs(wingFLF) do
         fleetFLF[#fleetFLF + 1] = j
-        hook.pilot(j, "death", "deathFLF")
-        j:setNodisable(true)
-        j:setHostile()
-        j:setVisible(true)
-        j:control()
+        setFLF( j )
         j:attack(targets[rnd.rnd(#targets - 1) + 1])
     end
 end
@@ -334,23 +348,29 @@ end
 -- Spawns FLF bombers
 function spawnFLFbombers()
     local targets = possibleDVtargets()
-    wingFLF = addRawShips( "Ancestor", "flf_norun", base:pos(), "FLF", 3 )
+    local wingFLF = addRawShips( "Ancestor", "flf_norun", base:pos(), "FLF", 3 )
     for i, j in ipairs(wingFLF) do
         fleetFLF[#fleetFLF + 1] = j
+        setFLF( j )
         hook.pilot(j, "death", "deathFLF")
         j:rename("FLF Ancestor")
-        j:setNodisable(true)
-        j:setHostile()
-        j:setVisible(true)
-        j:control()
         j:attack(targets[rnd.rnd(#targets - 1) + 1])
     end
 end
 
--- An FLF ship just died
-function deathFLF()
-    deathsFLF = deathsFLF + 1
+-- Spawns FLF destroyers
+function spawnFLFdestroyers()
+    local targets = possibleDVtargets()
+    local wingFLF = addShips( "FLF Pacifier", "flf_norun", base:pos(), 2 )
+    for i, j in ipairs(wingFLF) do
+        fleetFLF[#fleetFLF + 1] = j
+        hook.pilot(j, "death", "deathFLF")
+        setFLF( j )
+        j:attack(targets[rnd.rnd(#targets - 1) + 1])
+    end
+end
 
+function pruneFLF()
     -- Remove dead ships from array
     local t = fleetFLF
     fleetFLF = {}
@@ -359,6 +379,13 @@ function deathFLF()
             fleetFLF[ #fleetFLF+1 ] = j
         end
     end
+end
+
+-- An FLF ship just died
+function deathFLF()
+    deathsFLF = deathsFLF + 1
+
+    pruneFLF()
 
     -- Keep track of deaths
     if #fleetFLF <= 0 then
@@ -378,15 +405,19 @@ function nextStage()
     hook.rm( tim_sec ) -- Stop security timer
     if stage == 1 then
         --player.msg("Starting stage 2.")
-        hook.timer(1000, "spawnFLFbombers")
-        hook.timer(5000, "spawnFLFfighters")
+        hook.timer(1000, "spawnFLFfighters")
+        hook.timer(3000, "spawnFLFbombers")
+        hook.timer(5000, "spawnFLFdestroyers")
+        hook.timer(7000, "spawnFLFbombers")
         tim_sec = hook.timer(90000, "nextStage")
     elseif stage == 2 then
         --player.msg("Starting stage 3.")
         hook.timer(1000, "spawnFLFfighters")
-        hook.timer(3000, "spawnFLFbombers")
+        hook.timer(3000, "spawnFLFdestroyers")
         hook.timer(5000, "spawnFLFbombers")
-        tim_sec = hook.timer(90000, "nextStage")
+        hook.timer(7000, "spawnFLFbombers")
+        hook.timer(9000, "spawnFLFdestroyers")
+        tim_sec = hook.timer(120000, "nextStage")
     else
         --player.msg("Starting stage 4.")
         local delay = 0
@@ -399,6 +430,8 @@ function nextStage()
         hook.timer(delay, "zoomTo", base)
         delay = delay + 38000
         hook.timer(delay, "engageBase")
+        delay = delay + 45000
+        hook.timer(delay, "destroyBase")
         misn.osdActive(3)
     end
 end
@@ -465,36 +498,54 @@ function engageBase()
 end
 
 
+function destroyBase()
+   if base:exists() then
+      base:setHealth( -1, 0 )
+   end
+end
+
+
 -- Controls a fleet
 function controlFleet( fleetCur, pos, off )
+    if baseattack then
+       return
+    end
+
+    if fleetFLF ~= nil then
+       pruneFLF()
+    end
+
     -- Dvaered escorts should fall back into formation if not in combat, or if too close to the base or if too far from the Obstinate.
     for i, j in ipairs( fleetCur ) do
         if j:exists() then
-            local attacking = false
+            local basedist = vec2.dist(j:pos(), base:pos())
 
-            -- Kill nearby hostiles
-            if fleetFLF ~= nil and #fleetFLF > 0 and j:idle() then
-                local distance = 1500
+            -- Get closest hostile
+            local distance = 2500
+            if fleetFLF ~= nil and #fleetFLF > 0 then
                 local nearest = nil
-                local distanceCur
+                -- Should all exist as we've pruned before
                 for k, v in ipairs(fleetFLF) do
-                    if v:exists() then
-                        distanceCur = vec2.dist(j:pos(), v:pos())
-                        if distanceCur < distance then
-                            nearest = v
-                            distance = distanceCur
-                        end
+                    local distanceCur = vec2.dist(j:pos(), v:pos())
+                    if distanceCur < distance then
+                        nearest = v
+                        distance = distanceCur
                     end
-                end
-                if nearest ~= nil then
-                    j:control()
-                    j:attack(nearest)
-                    attacking = true
                 end
             end
 
+            -- Too close to base or recalled
+            if basedist < safestandoff or time <= 0 then
+                j:control()
+                j:goto( pos[i + off] )
+
+            -- See if we should engage
+            elseif nearest ~= nil and (distance < 500 or j:idle()) then
+                j:control()
+                j:attack(nearest)
+
             -- Fly back to fleet
-            if ((not attacking or vec2.dist(j:pos(), base:pos()) < safestandoff or time <= 0 or j:idle()) and not baseattack) then
+            elseif j:idle() then
                 j:control()
                 j:goto( pos[i + off] )
             end
@@ -574,13 +625,13 @@ function attacked()
     time = 3000
     
     for i, j in ipairs(fleetDV) do
-        if j:exists() and vec2.dist(j:pos(), base:pos()) > safestandoff and vec2.dist(obstinate:pos(), obstinate:pos()) < 1000 then
+        if j:exists() and vec2.dist(j:pos(), base:pos()) > safestandoff and vec2.dist(j:pos(), obstinate:pos()) < 1000 then
             j:control(false)
         end
     end
     
     for i, j in ipairs(fightersDV) do
-        if j:exists() and vec2.dist(j:pos(), base:pos()) > safestandoff and vec2.dist(obstinate:pos(), obstinate:pos()) < 1000 then
+        if j:exists() and vec2.dist(j:pos(), base:pos()) > safestandoff and vec2.dist(j:pos(), obstinate:pos()) < 1000 then
             j:control(false)
         end
     end
