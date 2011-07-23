@@ -1,4 +1,4 @@
-﻿--[[      Test Mission
+--[[      Test Mission
 
          Heavily annotated mission with the sole purpose of learning the ropes of mission creation.
 
