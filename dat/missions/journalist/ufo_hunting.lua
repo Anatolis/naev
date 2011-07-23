@@ -1,13 +1,7 @@
 --[[
 
-   Collective Scout
-
-   Author: bobbens
-      minor edits by Infiltrator
-
-   Starts the collective mini campaign.
-
-   You must inspect a stray drone.
+   	Text & concept: hage.tadmon
+	Programming: Anatolis
 
 ]]--
 
